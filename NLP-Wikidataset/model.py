@@ -13,7 +13,7 @@ class LSTM(tf.keras.Model):
         inputs = tf.keras.Input(shape = (), dtype = str) # still need to figure out shape
 
         for units in layer_units:
-            x = tf.keras.Layers.LSTM(units = units)(x)
+            x = tf.keras.layers.LSTM(units = units)(x)
 
     def call(self, x):
         self.model(x)
@@ -52,4 +52,4 @@ class LSTM(tf.keras.Model):
         try:
             self.model.save(path)
         except ValueError:
-            print(f'Either Path: \'{path}\' is invalid or path is not of type str. (got passed {type(path)})')
+            print(f'Either Path: \'{path}\' is invalid or path is not of type str. (got {type(path)} instead)')
