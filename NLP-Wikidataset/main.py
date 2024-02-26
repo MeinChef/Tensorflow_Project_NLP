@@ -2,18 +2,31 @@ from imports import tf
 from imports import tfds
 from tokeniser import Tokeniser
 from imports import np
+from imports import nltk
 
-tf.data.experimental.enable_debug_mode()
+# tf.data.experimental.enable_debug_mode()
 
 
 def load_and_prep_dataset(batch_size):
     
+
     data = tfds.load('wikipedia', split = tfds.Split.TRAIN)
+    
+    for elem in data['train']:
+        was_anderes = tf.cast(elem['text'], dtype = tf.string)
+
+        was_anderes.batch(batch_size)
+        tokenise = tf.keras.layers.TextVectorization()
+        # hopf_words = text.map(lambda words: words)
+        # print(type(hopf_words))    
+        tokenise.adapt(was_anderes)
+
+        return
     
     def article_to_text(text):
         return np.array([char for char in text.numpy().decode('utf-8')])
 
-# Converting each dataset item to a string ('text') instead of a dictionary ({'text', 'title'}).
+    # Converting each dataset item to a string ('text') instead of a dictionary ({'text', 'title'}).
     data_text = data.map(lambda article: tf.py_function(func=article_to_text, inp=[article['text']], Tout=tf.string))
 
 
@@ -25,18 +38,11 @@ def load_and_prep_dataset(batch_size):
     #  #### text = [example['text'].numpy().decode('utf-8') for example in text['train']] # this step seems utterly ridicolous, converting a dataset into a list???? like wtf
     # let's not do that, RAM overflow :)
 
-    date = data['train']
-    print(type(date))
+    # date = data['train']
+    # print(type(date))
 
-    text = date.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-
-
-    tokenise = tf.keras.layers.TextVectorization()
-    hopf_words = text.map(lambda words: words)
-    print(type(hopf_words))
-
-    tokenise.adapt(text)
+    # text = date.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+           
 
 
 
@@ -58,14 +64,37 @@ def load_and_prep_dataset(batch_size):
     return 
 
 
+def load_and_nltk(batch_size):
+    dataset = tfds.load('wikipedia')
+
+    text = []
+
+    for data in dataset['train']:
+        text.extend(nltk.tokenize.sent_tokenize(data['text']))
+    
+    print(len(text))
+
 # use the old tokeniser instead of the new layer, maybe that works better :MaiShrug:
 def load_and_tokenise(batch_size):
-    text = tfds.load('wikipedia')
+    data = tfds.load('wikipedia')
 
+    i = 0
     tokeniser = tf.keras.preprocessing.text.Tokenizer()
-    tokeniser.fit_on_sequences(text)
 
-    print(type(tokeniser))
+    # data = data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    for elem in data['train']:
+        was_anderes = tf.cast(elem['text'], dtype = tf.string)
+        # print(type(elem['text']))     
+
+        
+        tokeniser.fit_on_texts(was_anderes)
+
+        if i == 20: break
+        i += 1
+
+    print(tokeniser.word_index)
+
+    return tokeniser
 
 
 def load_tutorial_dataset(batch_size):
