@@ -3,25 +3,47 @@ from imports import tfds
 from tokeniser import Tokeniser
 from imports import np
 from imports import nltk
+import time
 
-# tf.data.experimental.enable_debug_mode()
+tf.data.experimental.enable_debug_mode()
 
 
-def load_and_prep_dataset(batch_size):
+
+def load_and_prep_dataset(batch_size = 64, max_tokens = 100000):
     
 
-    data = tfds.load('wikipedia', split = tfds.Split.TRAIN)
-    
-    for elem in data['train']:
-        was_anderes = tf.cast(elem['text'], dtype = tf.string)
+    data = tfds.load('wikipedia')
 
-        was_anderes.batch(batch_size)
-        tokenise = tf.keras.layers.TextVectorization()
-        # hopf_words = text.map(lambda words: words)
-        # print(type(hopf_words))    
-        tokenise.adapt(was_anderes)
+    data = data['train']
+    tokenise = tf.keras.layers.TextVectorization(max_tokens = max_tokens)
 
-        return
+
+
+    for elem in data:
+        
+        breakpoint() # useful for in code debugging
+
+        # eager Tensor is just tensor
+        tokenise.adapt(elem['text'])
+
+    data = data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
+
+    return tokenise
+
+            
+    # meh = data.map(lambda dictionary: dictionary['text'])
+
+    # tokenise = Tokeniser(vocab = data['train'])
+
+    # halp = tf.convert_to_tensor(data)
+    # tokenise.adapt(halp)
+    # breakpoint()
+
+    # more = tf.convert_to_tensor(elem['text'])
+    # hopf_words = text.map(lambda words: words)
+    # print(type(hopf_words))    
+    # tokenise.adapt_it(more)
+
     
     def article_to_text(text):
         return np.array([char for char in text.numpy().decode('utf-8')])
@@ -62,7 +84,7 @@ def load_and_prep_dataset(batch_size):
     #test  =  test.cache().batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     return 
-
+                         
 
 def load_and_nltk(batch_size):
     dataset = tfds.load('wikipedia')
@@ -111,29 +133,35 @@ def load_tutorial_dataset(batch_size):
 
     return encoder
 
+def from_gpt(batch_size, max_tokens = 50000):
+    start = time.time()
+    print(f'Start: {start}')
+
+    data = tfds.load('wikipedia', batch_size = -1)
+    data = data['train']
+    vectorise = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = 'int')
+
+    def get_text(elem):
+        return elem['text']
+
+    text_data = data.map(get_text, num_parallel_calls = tf.data.AUTOTUNE)
+    # text_data = text_data.prefetch(tf.data.AUTOTUNE)
+    print(f'After prefetch: {time.time() - start}')
+    vectorise.adapt(text_data)
+    print(f'After Adapt: {time.time() - start}')
+
+    text_data = text_data.map(vectorise, num_parallel_calls = tf.data.AUTOTUNE)
+    print(f'After map: {time.time() - start}')
+
+    return vectorise
 
 
-
-
-
-#   # do we want to get chars or rather words?????
-#       # I concluded this is uneccesary.
-#   def id_from_chr(char):
-#       return tf.keras.layers.StringLookup(vocabulary = list(vocab), mask_token = None)(char)
-#   
-#   def char_from_id(id):
-#       return tf.keras.layers.StringLookup(vocabulary = list(vocab), invert = True, mask_token = None)(id)
-#   
-#   def text_from_ids(ids):
-#       return tf.strings.reduce_join(char_from_id(ids), axis = -1)
-
-# rather, we want to train a model on "vocabulary"
-# see tokenise
 
 if __name__ == '__main__':
 
-    BATCH_SIZE = 4
+    BATCH_SIZE = 10000
     #c = load_tutorial_dataset(BATCH_SIZE)
 
-    a = load_and_tokenise(BATCH_SIZE)
+    a = from_gpt(BATCH_SIZE)
+    breakpoint()
     print(type(a))
