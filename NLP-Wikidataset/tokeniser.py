@@ -1,38 +1,36 @@
-from typing import Any
+# from typing import Any
 from imports import tf
+from imports import os
 
-class Tokeniser():
-    def __init__(self, vocab = None):
+
+class Tokeniser(tf.keras.Model):
+    def __init__(self, max_tokens = 50000, output_mode = 'int', vocab = None):
         super().__init__()
 
-        inputs = tf.keras.Input(shape = (1,), dtype = tf.string)
+        self.inputs = tf.keras.Input(shape = (1,), dtype = tf.string)
+        self.layer = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = output_mode, vocabulary = vocab)
 
-        if vocab:
-            outputs = tf.keras.layers.TextVectorization(vocabulary = vocab)(inputs)
-        else:
-            outputs = tf.keras.layers.TextVectorization()(inputs)
+    def call(self, vocab):
+        self.model(vocab)
 
-        self.tokenise = tf.keras.Model(inputs = inputs, outputs = outputs)
-
-        self.tokenisation_layer = tf.keras.layers.TextVectorization()
-
-    def __call__(self, vocab):
-        self.tokenise(vocab)
+    def builder(self, name = 'Tokeniser'):
+        outputs = self.layer(self.inputs)
+        self.model = tf.keras.Model(inputs = self.inputs, outputs = outputs, name = name)
 
     # methods for the layer, not the model, should be removed in final version
     def adapt(self, text):
-        self.tokenisation_layer.adapt(text)
+        self.layer.adapt(text)
 
     def is_adapted(self):
-        return self.tokenisation_layer.is_adapted()
+        return self.layer.is_adapted()
     
     # methods for the model
-    def save_to_file(self, path = 'model/tokens.keras'):
+    def save_to_file(self, path = '/model/tokens.keras'):
         # check if path is valid
         if isinstance(path, (str, tf.string)):
             if path[-6:] == '.keras':
                 # save model
-                self.tokenise.save(path)
+                self.model.save(os.path.dirname(path)) # os.path.dirname(path)
 
             else: raise ValueError('Path should end in \'.keras\'')
         else: raise ValueError(f'Expected string, got {type(path)} instead')
@@ -42,7 +40,7 @@ class Tokeniser():
         if isinstance(path, (str, tf.string)):
             if path[-6:] == '.keras': 
                 # load model
-                self.tokenise = tf.keras.models.load_model(path)
+                self.model = tf.keras.models.load_model(path)
 
             else: raise ValueError(f'Path should end in \'.keras\'')
         else: raise ValueError(f'Expected string, got {type(path)} instead')

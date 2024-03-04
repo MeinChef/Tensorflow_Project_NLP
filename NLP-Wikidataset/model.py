@@ -49,7 +49,29 @@ class LSTM(tf.keras.Model):
         return self.model.summary()
 
     def save(self, path):
+        '''maybe this is deprecated'''
         try:
             self.model.save(path)
         except ValueError:
             print(f'Either Path: \'{path}\' is invalid or path is not of type str. (got {type(path)} instead)')
+
+    # methods for the model
+    def save_to_file(self, path = 'model/tokens.keras'):
+        # check if path is valid
+        if isinstance(path, (str, tf.string)):
+            if path[-6:] == '.keras':
+                # save model
+                self.tokenise.save(path)
+
+            else: raise ValueError('Path should end in \'.keras\'')
+        else: raise ValueError(f'Expected string, got {type(path)} instead')
+
+    def load_from_file(self, path):
+        # check if path is valid
+        if isinstance(path, (str, tf.string)):
+            if path[-6:] == '.keras': 
+                # load model
+                self.tokenise = tf.keras.models.load_model(path)
+
+            else: raise ValueError(f'Path should end in \'.keras\'')
+        else: raise ValueError(f'Expected string, got {type(path)} instead')
