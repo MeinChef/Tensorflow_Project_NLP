@@ -5,7 +5,7 @@ from imports import np
 from imports import nltk
 import time
 
-tf.data.experimental.enable_debug_mode()
+# tf.data.experimental.enable_debug_mode()
 
 
 
@@ -137,29 +137,38 @@ def from_gpt(batch_size, max_tokens = 50000):
     start = time.time()
     print(f'Start: {start}')
 
-    data = tfds.load('wikipedia', batch_size = -1)
+    data = tfds.load('wikipedia')
     data = data['train']
+    print(f'After load: {time.time() - start}')
+
     vectorise = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = 'int')
 
     def get_text(elem):
         return elem['text']
 
     text_data = data.map(get_text, num_parallel_calls = tf.data.AUTOTUNE)
-    # text_data = text_data.prefetch(tf.data.AUTOTUNE)
+    text_data = text_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
     print(f'After prefetch: {time.time() - start}')
-    vectorise.adapt(text_data)
+    vectorise.adapt(text_data.take(5))
     print(f'After Adapt: {time.time() - start}')
 
-    text_data = text_data.map(vectorise, num_parallel_calls = tf.data.AUTOTUNE)
+    text_data = text_data.map(vectorise, num_parallel_calls = tf.data.AUTOTUNE) # no idea if that really works lel
     print(f'After map: {time.time() - start}')
+    breakpoint()
+    
+    model = tf.keras.models.Sequential()
+    model.add(tf.keras.Input(shape = (1,), dtype = tf.string))
+    model.add(vectorise)
+    breakpoint()
+    # maybe do vectorisation with calass instead of in situ model
 
-    return vectorise
+    return model
 
 
 
 if __name__ == '__main__':
 
-    BATCH_SIZE = 10000
+    BATCH_SIZE = 512
     #c = load_tutorial_dataset(BATCH_SIZE)
 
     a = from_gpt(BATCH_SIZE)
