@@ -3,7 +3,8 @@ from imports import tfds
 from tokeniser import Tokeniser
 from imports import np
 from imports import os
-import time
+from imports import time
+import func
 
 # tf.data.experimental.enable_debug_mode()
                          
@@ -48,7 +49,6 @@ def from_gpt(batch_size, max_tokens = 50000):
     
     vectorise.builder()
     # maybe do vectorisation with calass instead of in situ model
-    breakpoint()
 
     return vectorise
 
@@ -56,10 +56,13 @@ def from_gpt(batch_size, max_tokens = 50000):
 
 if __name__ == '__main__':
 
+    func.check_cwd()
+
     BATCH_SIZE = 512
     MAX_TOKENS = 100
     #c = load_tutorial_dataset(BATCH_SIZE)
 
     model = from_gpt(BATCH_SIZE)
+    model.save_to_file()
 
-    breakpoint()
+    #breakpoint()
