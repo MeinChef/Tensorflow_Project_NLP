@@ -11,13 +11,22 @@ class Tokeniser(tf.keras.Model):
         self.inputs = tf.keras.Input(shape = (1,), dtype = tf.string)
         self.layer = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = output_mode, vocabulary = vocab)
 
+    def __call__(self, vocab):
+        self.call(vocab)
+
+    @tf.function
     def call(self, vocab):
         self.model(vocab)
+
+    
 
     def builder(self, name = 'Tokeniser'):
         outputs = self.layer(self.inputs)
         self.model = tf.keras.Model(inputs = self.inputs, outputs = outputs, name = name)
         self.model.compile()
+
+    def info(self):
+        return self.model.summary()
 
     # methods for the layer, not the model, should be removed in final version
     def adapt(self, text):
@@ -29,25 +38,29 @@ class Tokeniser(tf.keras.Model):
     #########################
     # methods for the model #
     #########################
-    def save_to_file(self, path = None):
-
+    def save_to_file(self, name = None):
+        '''
+        Saves the model as a .keras file.
+        If no name given, saves it as model_{version}.keras. Else will save as {name}.keras
+        '''
+        path = 'NLP-Wikidataset/model/Tokenise'
         ### automatic version control: ###
-        # get the contents of the '/model' folder
-        if not path:
-            contents_mofo = os.listdir('model')
+        # get the contents of the 'NLP-Wikidataset/model' folder
+        if name == None:
+            contents_mofo = os.listdir(path)
 
             # get latest version
             versions = []
             for elem in contents_mofo:
                 if re.match(r'model_\d+.keras', elem):
-                    has_ver = re.search(r'\d+', elem).group()
-                    versions.append(int(has_ver))
+                    ver = re.search(r'\d+', elem).group()
+                    versions.append(int(ver))
 
             if versions == []: ver = 0 # there is no model yet saved
             else: ver = max(versions) + 1
             
             # model path and saving
-            path = f'model/model_{ver}.keras'
+            path = f'{path}/model_{ver}.keras'
             self.model.save(path)
 
             print('Success saving the model!')
@@ -55,47 +68,51 @@ class Tokeniser(tf.keras.Model):
         ### custom save ##
         else:
             # check if path is valid
-            if isinstance(path, (str, tf.string)):
-                if path[-6:] == '.keras': 
-                    # load model
-                    self.model = tf.keras.models.load_model(path)
+            if isinstance(name, (str, tf.string)):
+                if name[-6:] == '.keras':
+                    name = re.sub(r'\.|/', '', name[:-6])
+                    self.model.save(f'{path}/{name}')
+                else:
+                    name = re.sub(r'\.|/', '', name)
+                    self.model.save(f'{path}/{name}.keras')
 
-                else: raise ValueError(f'Path should end in \'.keras\'')
             else: raise ValueError(f'Expected string, got {type(path)} instead')
 
 
 
-    def load_from_file(self, path = None):
+    def load_from_file(self, name = None):
         '''
-        Loads a model from the specified path.
-        If no path is given, uses latest save from the automatic version control.
+        Loads a model with name as a .keras from NLP-Wikidataset/model/.
+        If no name is given, uses latest save from the automatic version control.
         '''
         
+        path = 'NLP-Wikidataset/model/Tokenise'
+
         ### automatic version control: load latest model ###
-        if not path:
-            contents_mofo = os.listdir('model')
+        if name == None:
+            contents_mofo = os.listdir(path)
 
             # get latest version
             versions = []
             for elem in contents_mofo:
                 if re.match(r'model_\d+.keras', elem):
-                    has_ver = re.search(r'\d+', elem).group()
-                    versions.append(int(has_ver))
+                    ver = re.search(r'\d+', elem).group()
+                    versions.append(int(ver))
 
             # load latest version
-            self.model = tf.keras.models.load_model(f'model/model_{max(versions)}.keras')
+            self.model = tf.keras.models.load_model(f'{path}/model_{max(versions)}.keras')
 
 
-        ### custom path ###
+        ### custom model name ###
         else:
             # check if path is valid
-            if isinstance(path, (str, tf.string)):
-                if path[-6:] == '.keras': 
-                    # load model
-                    self.model = tf.keras.models.load_model(path)
+            if isinstance(name, (str, tf.string)):
+                if name[-6:] == '.keras':
+                    self.model = tf.keras.models.load_model(f'{path}/{name}')
+                else: 
+                    self.model = tf.keras.models.load_model(f'{path}/{name}.keras')
 
-                else: raise ValueError(f'Path should end in \'.keras\' and contain the model folder.')
-            else: raise ValueError(f'Expected string, got {type(path)} instead')
+            else: raise ValueError(f'Expected string, got {type(name)} instead')
             
             
 

@@ -8,17 +8,12 @@ def check_cwd():
     # check if current working directory is the repository, and set it if not
     cwd = os.getcwd()
 
-    # because I'm lazy and don't want to do the while loop every time I save the model:
-    if 'Documents/Uni/Semester3/IANNwTF/Code' in cwd: 
-        os.chdir('Tensorflow_Project_NLP')
-        cwd = os.getcwd()
-
     # for everyone but me, muhahaha
-    while not 'Tensorflow_Project_NLP' in cwd:
-        print('The current working directory is not the repository "Tensorflow_Project_NLP".')
+    while cwd[-22:] != 'Tensorflow_Project_NLP':
+        print('The current working directory is not the top level folder of the repository "Tensorflow_Project_NLP".')
         print(f'You\'re currently here: {cwd}')
         new_path = input('Please navigate to the repository: ')
         
         try: os.chdir(new_path)
-        except: print('This didn\'t work')
+        except: print('This didn\'t work, please try again. \n\r')
         cwd = os.getcwd()

@@ -2,4 +2,4 @@
 __pycache__/
 dataset/
 halp.py
-model/model*
+NLP-Wikidataset/model/model*
