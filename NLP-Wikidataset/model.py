@@ -18,6 +18,10 @@ class LSTM(tf.keras.Model):
         for units in layer_units:
             x = tf.keras.layers.LSTM(units = units)(x)
 
+        outputs = tf.keras.layers.Dense(units = max_tokens, activation = tf.nn.softmax)
+
+        self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
+
     def __call__(self, x):
         self.call()
 

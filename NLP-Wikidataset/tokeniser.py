@@ -11,12 +11,10 @@ class Tokeniser(tf.keras.Model):
         self.inputs = tf.keras.Input(shape = (1,), dtype = tf.string)
         self.layer = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = output_mode, vocabulary = vocab)
 
-    def __call__(self, vocab):
-        self.call(vocab)
 
     @tf.function
-    def call(self, vocab):
-        self.model(vocab)
+    def call(self, x):
+        return self.model(x)
 
     
 
