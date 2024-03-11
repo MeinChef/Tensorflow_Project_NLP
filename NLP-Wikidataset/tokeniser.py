@@ -66,6 +66,7 @@ class Tokeniser(tf.keras.Model):
         ### custom save ##
         else:
             # check if path is valid
+            # maybe replace the if isinstnace with assert
             if isinstance(name, (str, tf.string)):
                 if name[-6:] == '.keras':
                     name = re.sub(r'\.|/', '', name[:-6])

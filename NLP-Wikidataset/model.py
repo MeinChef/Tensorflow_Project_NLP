@@ -1,6 +1,8 @@
 from imports import tf
+from imports import np
 from imports import re
 from imports import os
+from tqdm import tqdm
 
 class LSTM(tf.keras.Model):
     def __init__(self, layer_units, max_tokens):
@@ -23,36 +25,70 @@ class LSTM(tf.keras.Model):
         self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
 
     def __call__(self, x):
-        self.call()
+        return self.call()
+    
+    def set_loss(self, loss = tf.keras.losses.CategoricalCrossentropy()):
+        self.loss = loss
+    
+    def set_optimiser(self, optim = tf.keras.optimizers.Adam, learning_rate = 0.001):
+        self.optim = optim(learning_rate = learning_rate)
+
+    def set_metrics(self, loss_metr = tf.keras.metrics.Mean(name = 'loss'), acc_metr = tf.keras.metrics.CategoricalAccuracy(name = 'acc')):
+        self.loss_metr = loss_metr
+        self.acc_metr = acc_metr
+
+    def reset_metrics(self): 
+        self.loss_metr.reset_states()
+        self.acc_metr.reset_states()
+
+    def get_metrics(self):
+        return self.loss_metr.result(), self.acc_metr.result()
 
     @tf.function
     def call(self, x):
-        self.model(x)
+        return self.model(x)
 
     @tf.function
-    def train(self, x):
+    def train(self, x, target):
         
-        x, target = x
-
         with tf.keras.GradientTape() as tape:
             pred = self.model(x)
+            # is loss really usable?
             loss = self.loss(x, target)
+
+        self.loss_metr.update_state(loss)
+        self.acc_metr.update_state(target, pred)
         
-        gradients = self.model()
-        self.optimiser.apply_gradients(zip(self.model.trainable_variables, gradients))
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optimiser.apply_gradients(zip(gradients, self.model.trainable_variables))
     
     @tf.function
-    def test(self, x):
-        
-        x, target = x
+    def test(self, x, target):
 
         pred = self.model(x)
         loss = self.loss(x, target)
 
-        self.losses = loss
+        self.loss_metr.update_state(loss)
+        self.acc_metr.update_state(target, pred)
 
-    def train_test():
-        pass
+        return loss
+
+    def train_test(self, data, targets, epochs):
+        loss = np.empty()
+        acc = np.empt()
+        for epoch in range(epochs):
+            print(f'Epoch {epoch}')
+            for x, t in tqdm(zip(data, targets)):
+                self.train(x, t)
+
+            loss[epoch], acc[epoch] = self.get_metrics()
+            self.reset_metrics()
+            
+            # do we really need all the testing stuff?????
+
+
+            
+        
 
     def info(self):
         return self.model.summary()

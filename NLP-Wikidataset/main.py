@@ -40,7 +40,7 @@ def from_gpt(batch_size, max_tokens = 50000):
     def get_text(elem):
         return elem['text']
 
-    text_data = data.map(get_text, num_parallel_calls = tf.data.AUTOTUNE)
+    text_data = data.map(lambda x: x['text'], num_parallel_calls = tf.data.AUTOTUNE)
     text_data = text_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
     tf.print(f'After prefetch: {time.time() - start}')
 
@@ -57,11 +57,8 @@ def from_gpt(batch_size, max_tokens = 50000):
 
     embed = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = 10, mask_zero = True)
     embed_data = num_data.map(lambda x: embed(x), num_parallel_calls = tf.data.AUTOTUNE)
+    target = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
     
-    for elem, num in zip(text_data, num_data):
-        # embed(num) # this works!!!!!!!!
-        breakpoint()
-        # embed(tokenise(elem))
 
 
     return tokenise, text_data
@@ -80,16 +77,25 @@ def embedding(max_tokens, text):
 
 if __name__ == '__main__':
 
-    func.check_cwd()
-
     BATCH_SIZE = 512
-    MAX_TOKENS = 100
-    #c = load_tutorial_dataset(BATCH_SIZE)
+    MAX_TOKENS = 100000
+
+    func.check_cwd()
+    start = time.time()
+
+    raw_data = func.get_data()
+    func.timer(start)
+
+    tokeniser = Tokeniser(max_tokens = MAX_TOKENS)    
+    tokeniser.adapt(raw_data)
+    tokeniser.builder()
+    func.timer(start)
+
+    num_data, targets = func.targenise(raw_data, tokeniser)
 
     tokenise_model, data = from_gpt(BATCH_SIZE, MAX_TOKENS)
     
     breakpoint()
-    embed = embedding(MAX_TOKENS, data.take(3))
 
 
     #breakpoint()
