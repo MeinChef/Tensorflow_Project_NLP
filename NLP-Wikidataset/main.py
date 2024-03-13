@@ -7,22 +7,6 @@ from imports import time
 import func
 
 # tf.data.experimental.enable_debug_mode()
-                         
-
-
-def load_tutorial_dataset(batch_size):
-    dataset, info = tfds.load('imdb_reviews', with_info=True, as_supervised=True)
-    train_dataset, test_dataset = dataset['train'], dataset['test']
-    
-    train_dataset = train_dataset.shuffle(100).batch(batch_size).prefetch(tf.data.AUTOTUNE)
-    test_dataset = test_dataset.batch(batch_size).prefetch(tf.data.AUTOTUNE)
-
-    encoder = tf.keras.layers.TextVectorization()
-    new_train = train_dataset.map(lambda text, label: text)
-    print(type(new_train))
-    encoder.adapt(new_train)
-
-    return encoder
 
 def from_gpt(batch_size, max_tokens = 50000):
     start = time.time()
@@ -37,8 +21,7 @@ def from_gpt(batch_size, max_tokens = 50000):
     tokenise = Tokeniser(max_tokens = max_tokens)
 
     # preparing the dataset, to make it workable
-    def get_text(elem):
-        return elem['text']
+
 
     text_data = data.map(lambda x: x['text'], num_parallel_calls = tf.data.AUTOTUNE)
     text_data = text_data.batch(batch_size).prefetch(tf.data.AUTOTUNE)
@@ -77,25 +60,30 @@ def embedding(max_tokens, text):
 
 if __name__ == '__main__':
 
+    #### split data 
+    # increase swap
+
     BATCH_SIZE = 512
-    MAX_TOKENS = 100000
+    BUFFER_SIZE = 1000
+    MAX_TOKENS = 50000
 
     func.check_cwd()
+    print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
     start = time.time()
 
-    raw_data = func.get_data()
+    raw_data = func.get_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
     func.timer(start)
 
-    tokeniser = Tokeniser(max_tokens = MAX_TOKENS)    
-    tokeniser.adapt(raw_data)
+    tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
+    tokeniser.adapt(raw_data.take(20000))
     tokeniser.builder()
     func.timer(start)
 
-    num_data, targets = func.targenise(raw_data, tokeniser)
+    # num_data, targets = func.targenise(raw_data, tokeniser)
 
-    tokenise_model, data = from_gpt(BATCH_SIZE, MAX_TOKENS)
+
+
+    # tokenise_model, data = from_gpt(BATCH_SIZE, MAX_TOKENS)
     
     breakpoint()
-
-
-    #breakpoint()

@@ -1,4 +1,4 @@
 matplotlib
 tensorflow
 tensorflow_datasets
-os
+numpy

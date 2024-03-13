@@ -32,18 +32,20 @@ def check_cwd():
         except: print('This didn\'t work, please try again. \n\r')
         cwd = os.getcwd()
 
-def get_data(batch_size):
+def get_data(buff_size = 1000, batch_size = 128):
     data = tfds.load('wikipedia')
     data = data['train']
     data = data.map(lambda x: x['text'], num_parallel_calls = tf.data.AUTOTUNE)
+    data = data.shuffle(buff_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
 
     return data
 
 def targenise(text_data, tokeniser):
-    breakpoint()
     # isinstance(text_data, tf.data.Dataset)
 
     num_data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE)
     del text_data
     targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
     return num_data, targets
+
+
