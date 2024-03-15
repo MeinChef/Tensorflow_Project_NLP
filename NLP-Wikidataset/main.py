@@ -65,7 +65,7 @@ if __name__ == '__main__':
 
     BATCH_SIZE = 512
     BUFFER_SIZE = 1000
-    MAX_TOKENS = 50000
+    MAX_TOKENS = 50000 # to use pre-tokenised model use 50k, 75k, or 100k
 
     func.check_cwd()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
@@ -73,17 +73,20 @@ if __name__ == '__main__':
     start = time.time()
 
     raw_data = func.get_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+    tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
     func.timer(start)
 
-    tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
-    tokeniser.adapt(raw_data.take(20000))
+    ####### code to get tokens ######
+    with tf.device('/device:GPU:0'):
+        tokeniser.adapt(raw_data)
     tokeniser.builder()
+    tokeniser.save_to_file('no_comp.keras')
+
+    ###### code to load pre-tokenised model ######
+    # tokeniser.load_from_file(f'full_50k.keras')
+
     func.timer(start)
 
     # num_data, targets = func.targenise(raw_data, tokeniser)
-
-
-
-    # tokenise_model, data = from_gpt(BATCH_SIZE, MAX_TOKENS)
     
     breakpoint()

@@ -2,4 +2,5 @@
 __pycache__/
 dataset/
 halp.py
-NLP-Wikidataset/model/model*
+model*
+tokeniser copy.py
