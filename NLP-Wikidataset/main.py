@@ -78,6 +78,7 @@ if __name__ == '__main__':
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
     func.timer(start)
 
+    # raw_data = raw_data.take(20)
     # list = raw_data.map(lamda x: whatever you do with x)
 
     ####### code to get tokens ######
