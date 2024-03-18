@@ -5,7 +5,7 @@ from imports import os
 from tqdm import tqdm
 
 class LSTM(tf.keras.Model):
-    def __init__(self, layer_units, max_tokens):
+    def __init__(self, layer_units = [64, 64], max_tokens = 50000):
         
         super().__init__()
 
@@ -130,7 +130,7 @@ class LSTM(tf.keras.Model):
             if isinstance(name, (str, tf.string)):
                 if name[-6:] == '.keras':
                     name = re.sub(r'\.|/', '', name[:-6])
-                    self.model.save(f'{path}/{name}')
+                    self.model.save(f'{path}/{name}.keras')
                 else:
                     name = re.sub(r'\.|/', '', name)
                     self.model.save(f'{path}/{name}.keras')

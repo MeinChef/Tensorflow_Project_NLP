@@ -1,6 +1,7 @@
 from imports import tf
 from imports import tfds
 from tokeniser import Tokeniser
+from model import LSTM
 from imports import np
 from imports import os
 from imports import time
@@ -67,6 +68,7 @@ if __name__ == '__main__':
     BUFFER_SIZE = 1000
     MAX_TOKENS = 50000 # to use pre-tokenised model use 50k, 75k, or 100k
 
+    if tf.__version__ != '2.15.0': print('You are not using Version 2.15.0 of Tensorflow, I haven\'t tested it with other versions, you are on your own :)')
     func.check_cwd()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
 
@@ -76,16 +78,18 @@ if __name__ == '__main__':
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
     func.timer(start)
 
+    # list = raw_data.map(lamda x: whatever you do with x)
+
     ####### code to get tokens ######
-    with tf.device('/device:GPU:0'):
-        tokeniser.adapt(raw_data)
-    tokeniser.builder()
-    tokeniser.save_to_file('no_comp.keras')
+    # with tf.device('/device:GPU0'):
+    #     tokeniser.adapt(raw_data)
+    # tokeniser.builder()
+    # tokeniser.save_to_file(f'full_{MAX_TOKENS/1000}k.keras')
 
     ###### code to load pre-tokenised model ######
-    # tokeniser.load_from_file(f'full_50k.keras')
-
+    tokeniser.load_from_file(f'full_{MAX_TOKENS/1000}k.keras')
     func.timer(start)
+    
 
     # num_data, targets = func.targenise(raw_data, tokeniser)
     
