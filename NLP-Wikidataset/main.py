@@ -62,22 +62,24 @@ def embedding(max_tokens, text):
 if __name__ == '__main__':
 
     #### split data 
-    # increase swap
 
+    EPOCHS = 16
     BATCH_SIZE = 512
     BUFFER_SIZE = 1000
     MAX_TOKENS = 50000 # to use pre-tokenised model use 50k, 75k, or 100k
 
     if tf.__version__ != '2.15.0': print('You are not using Version 2.15.0 of Tensorflow, I haven\'t tested it with other versions, you are on your own :)')
-    func.check_cwd()
     print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+    func.check_cwd()
 
+    # here the actual fun starts
     start = time.time()
 
     raw_data = func.get_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
     func.timer(start)
 
+    # for Mini11e trials
     # raw_data = raw_data.take(20)
     # list = raw_data.map(lamda x: whatever you do with x)
 
@@ -85,13 +87,20 @@ if __name__ == '__main__':
     # with tf.device('/device:GPU0'):
     #     tokeniser.adapt(raw_data)
     # tokeniser.builder()
-    # tokeniser.save_to_file(f'full_{MAX_TOKENS/1000}k.keras')
+    # tokeniser.save_to_file(f'full_{int(MAX_TOKENS/1000)}k.keras')
 
     ###### code to load pre-tokenised model ######
-    tokeniser.load_from_file(f'full_{MAX_TOKENS/1000}k.keras')
+    tokeniser.load_from_file(f'full_{int(MAX_TOKENS/1000)}k.keras')
     func.timer(start)
     
+    num_data, targets = func.targenise(raw_data, tokeniser)
+    del raw_data
 
-    # num_data, targets = func.targenise(raw_data, tokeniser)
+    # tf.keras.utils.split_dataset
+
+    model = LSTM(layer_units = [5], max_tokens = MAX_TOKENS)
+    model.lazy_setter()
+    model.train_test(data = num_data, targets = targets, epochs = EPOCHS)
+
     
     breakpoint()

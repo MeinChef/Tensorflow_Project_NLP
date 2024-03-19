@@ -5,7 +5,7 @@ from imports import os
 from tqdm import tqdm
 
 class LSTM(tf.keras.Model):
-    def __init__(self, layer_units = [64, 64], max_tokens = 50000):
+    def __init__(self, layer_units = [64, 64], max_tokens = 50000, output_dim = 100):
         
         super().__init__()
 
@@ -13,20 +13,24 @@ class LSTM(tf.keras.Model):
         if isinstance(layer_units, int):
             layer_units = [layer_units]
         
-        inputs = tf.keras.Input(shape = (), dtype = tf.int32) # still need to figure out shape
+        inputs = tf.keras.Input(shape = (1,), dtype = tf.float32) # still need to figure out shape
         
-        x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = 10)(inputs)
+        x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
 
         for units in layer_units:
             x = tf.keras.layers.LSTM(units = units)(x)
 
-        outputs = tf.keras.layers.Dense(units = max_tokens, activation = tf.nn.softmax)
+        outputs = tf.keras.layers.Dense(units = max_tokens, activation = tf.nn.softmax)(x)
 
         self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
 
     def __call__(self, x):
         return self.call()
     
+    @tf.function
+    def call(self, x):
+        return self.model(x)
+
     def set_loss(self, loss = tf.keras.losses.CategoricalCrossentropy()):
         self.loss = loss
     
@@ -37,6 +41,11 @@ class LSTM(tf.keras.Model):
         self.loss_metr = loss_metr
         self.acc_metr = acc_metr
 
+    def lazy_setter(self):
+        self.set_loss()
+        self.set_metrics()
+        self.set_optimiser()
+
     def reset_metrics(self): 
         self.loss_metr.reset_states()
         self.acc_metr.reset_states()
@@ -45,13 +54,9 @@ class LSTM(tf.keras.Model):
         return self.loss_metr.result(), self.acc_metr.result()
 
     @tf.function
-    def call(self, x):
-        return self.model(x)
-
-    @tf.function
     def train(self, x, target):
         
-        with tf.keras.GradientTape() as tape:
+        with tf.GradientTape() as tape:
             pred = self.model(x)
             # is loss really usable?
             loss = self.loss(x, target)
@@ -74,8 +79,8 @@ class LSTM(tf.keras.Model):
         return loss
 
     def train_test(self, data, targets, epochs):
-        loss = np.empty()
-        acc = np.empt()
+        loss = np.empty(epochs)
+        acc = np.empty(epochs)
         for epoch in range(epochs):
             print(f'Epoch {epoch}')
             for x, t in tqdm(zip(data, targets)):

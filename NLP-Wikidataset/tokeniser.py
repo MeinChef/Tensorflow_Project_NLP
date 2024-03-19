@@ -16,8 +16,6 @@ class Tokeniser(tf.keras.Model):
     def call(self, x):
         return self.model(x)
 
-    
-
     def builder(self, name = 'Tokeniser'):
         outputs = self.layer(self.inputs)
         self.model = tf.keras.Model(inputs = self.inputs, outputs = outputs, name = name)
