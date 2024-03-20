@@ -5,7 +5,7 @@ from imports import os
 from tqdm import tqdm
 
 class LSTM(tf.keras.Model):
-    def __init__(self, layer_units = [64, 64], max_tokens = 50000, output_dim = 100):
+    def __init__(self, layer_units = [64, 64], embed_size = 74154, max_tokens = 50000, output_dim = 10):
         
         super().__init__()
 
@@ -13,14 +13,14 @@ class LSTM(tf.keras.Model):
         if isinstance(layer_units, int):
             layer_units = [layer_units]
         
-        inputs = tf.keras.Input(shape = (1,), dtype = tf.float32) # still need to figure out shape
-        
+        inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.int32) # still need to figure out shape 74154
         x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
 
+        # x = tf.keras.layers.Masking(mask_value = -1)(x) # masking doesn't work with CUDNN for some godforsaken reason
         for units in layer_units:
             x = tf.keras.layers.LSTM(units = units)(x)
 
-        outputs = tf.keras.layers.Dense(units = max_tokens, activation = tf.nn.softmax)(x)
+        outputs = tf.keras.layers.Dense(units = embed_size, activation = tf.nn.softmax)(x)
 
         self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
 
@@ -59,19 +59,19 @@ class LSTM(tf.keras.Model):
         with tf.GradientTape() as tape:
             pred = self.model(x)
             # is loss really usable?
-            loss = self.loss(x, target)
+            loss = self.loss(target, pred)
 
         self.loss_metr.update_state(loss)
         self.acc_metr.update_state(target, pred)
         
         gradients = tape.gradient(loss, self.model.trainable_variables)
-        self.optimiser.apply_gradients(zip(gradients, self.model.trainable_variables))
+        self.optim.apply_gradients(zip(gradients, self.model.trainable_variables))
     
     @tf.function
     def test(self, x, target):
 
         pred = self.model(x)
-        loss = self.loss(x, target)
+        loss = self.loss(target, pred)
 
         self.loss_metr.update_state(loss)
         self.acc_metr.update_state(target, pred)

@@ -3,13 +3,6 @@ from imports import tfds
 from imports import os
 from imports import time
 
-class Timer():
-    def __init__(self):
-        self.start = time.time()
-    
-    def __call__(self):
-        print(f'{time.time() - self.start}s have passed.')
-
 def timer(start):
     print(f'{round(time.time() - start, ndigits = 4)}s have passed.')
 
@@ -32,7 +25,7 @@ def check_cwd():
         except: print('This didn\'t work, please try again. \n\r')
         cwd = os.getcwd()
 
-def get_data(buff_size = 1000, batch_size = 128):
+def get_data(buff_size = 1000, batch_size = 128, padding = None, pad_val = -1):
     data = tfds.load('wikipedia')
     data = data['train']
     data = data.map(lambda x: x['text'], num_parallel_calls = tf.data.AUTOTUNE)
@@ -40,12 +33,24 @@ def get_data(buff_size = 1000, batch_size = 128):
 
     return data
 
-def targenise(text_data, tokeniser):
+def targenise(text_data, tokeniser, padding = 50000, pad_val = -1):
     # isinstance(text_data, tf.data.Dataset)
 
     num_data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE)
     del text_data
+    num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.int32))
     targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
+    
+    # pad the data, so that they have equal sizes
+    @tf.py_function(Tout = tf.int32)
+    def pad_right(x, pad_len, val = -1):
+        paddings = tf.constant([[0,0], [0, pad_len.numpy() - x.shape[1]]], dtype = tf.int32)
+        a = tf.pad(x, paddings, 'CONSTANT', constant_values = val.numpy())
+        return a
+
+    num_data = num_data.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
+    targets  =  targets.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
+
     return num_data, targets
 
 
