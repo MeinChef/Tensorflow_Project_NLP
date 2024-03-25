@@ -4,3 +4,5 @@ dataset/
 halp.py
 model*
 tokeniser copy.py
+string.txt
+.gitignore
