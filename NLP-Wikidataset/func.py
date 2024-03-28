@@ -33,23 +33,27 @@ def get_data(buff_size = 1000, batch_size = 128, padding = None, pad_val = -1):
 
     return data
 
-def targenise(text_data, tokeniser, padding = 50000, pad_val = -1):
-    # isinstance(text_data, tf.data.Dataset)
-
+def targenise(text_data, tokeniser, max_tokens = 25000, padding = 50000, pad_val = -1):
     num_data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE)
     del text_data
     num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.int32))
-    targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
+    
+    ######## that's the rolling idea of creating targets, resulting in output_layer needing to be len_pad long #####
+    # targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
     
     # pad the data, so that they have equal sizes
-    @tf.py_function(Tout = tf.int32)
-    def pad_right(x, pad_len, val = -1):
-        paddings = tf.constant([[0,0], [0, pad_len.numpy() - x.shape[1]]], dtype = tf.int32)
-        a = tf.pad(x, paddings, 'CONSTANT', constant_values = val.numpy())
-        return a
+    # @tf.py_function(Tout = tf.int32)
+    # def pad_right(x, pad_len, val = -1):
+    #     paddings = tf.constant([[0,0], [0, pad_len.numpy() - x.shape[1]]], dtype = tf.int32)
+    #     return tf.pad(x, paddings, 'CONSTANT', constant_values = val.numpy())
+    #     
+    # 
+    # num_data = num_data.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
+    # targets  =  targets.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
 
-    num_data = num_data.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
-    targets  =  targets.map(lambda x: pad_right(x, padding, pad_val), num_parallel_calls = tf.data.AUTOTUNE)
+    ###### that's the one-hot approach ######
+    # one hot, to create 3-dimensional output, but still roll, no reduce_max
+    targets = num_data.map(lambda x: tf.one_hot(x, max_tokens), num_parallel_calls = tf.data.AUTOTUNE)
 
     return num_data, targets
 

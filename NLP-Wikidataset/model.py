@@ -17,10 +17,10 @@ class LSTM(tf.keras.Model):
         x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
 
         # x = tf.keras.layers.Masking(mask_value = -1)(x) # masking doesn't work with CUDNN for some godforsaken reason
-        for units in layer_units[:-1]:
+        for units in layer_units:
             x = tf.keras.layers.LSTM(units = units, return_sequences = True)(x)
         
-        x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
+        # x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
 
         outputs = tf.keras.layers.Dense(units = embed_size, activation = tf.nn.softmax)(x)
 

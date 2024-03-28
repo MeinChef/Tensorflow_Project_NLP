@@ -108,8 +108,8 @@ if __name__ == '__main__':
     func.timer(start)
 
     ####### code to get tokens ######
-    # with tf.device('/device:GPU0'):
-    # tokeniser.adapt(raw_data)
+    # with tf.device('/device:GPU:0'):
+    #     tokeniser.adapt(raw_data)
     # tokeniser.builder()
     # tokeniser.save_to_file(f'full_{int(MAX_TOKENS/1000)}k.keras')
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
     model.info()
     tf.print()
 
-    model.train_test(data = num_data, targets = targets, epochs = EPOCHS)
+    # model.train_test(data = num_data, targets = targets, epochs = EPOCHS)
 
 
     breakpoint()
