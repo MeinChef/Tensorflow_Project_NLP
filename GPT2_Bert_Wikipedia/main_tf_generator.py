@@ -24,3 +24,6 @@ for i in range(len(races)):
             results.append(result)
             print(result)
             type(result)
+
+with open('file.txt', 'w') as file:
+    print(f'results', file = file)
