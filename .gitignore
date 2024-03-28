@@ -2,7 +2,7 @@
 __pycache__/
 dataset/
 halp.py
-model*
+model_*
 tokeniser copy.py
 string.txt
 .gitignore
