@@ -22,7 +22,6 @@ bert_tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
 # Load GPT-2 model and tokenizer
 gpt2_model = TFGPT2Model.from_pretrained('gpt2')
 gpt2_tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
-gpt2_tokenizer.decode()
 
 # initialise the encoder-decoder class
 model = EncoderDecoder(bert_model, gpt2_model)
