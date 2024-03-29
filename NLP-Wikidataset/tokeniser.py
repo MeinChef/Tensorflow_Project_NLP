@@ -30,7 +30,13 @@ class Tokeniser(tf.keras.Model):
 
     def is_adapted(self):
         return self.layer.is_adapted()
+    
+    def save_layer(self, dir):
+        self.layer.save_assets(dir)
 
+    def load_layer(self, dir):
+        self.layer.load_assets(dir)
+    
     #########################
     # methods for the model #
     #########################

@@ -22,12 +22,15 @@ class LSTM(tf.keras.Model):
         
         # x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
 
-        outputs = tf.keras.layers.Dense(units = embed_size, activation = tf.nn.softmax)(x)
+        def custom_soft(x):
+            return tf.nn.softmax(x, axis = 2)
+
+        outputs = tf.keras.layers.Dense(units = max_tokens, activation = custom_soft)(x)
 
         self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
 
     def __call__(self, x):
-        return self.call()
+        return self.call(x)
     
     @tf.function
     def call(self, x):
@@ -37,6 +40,7 @@ class LSTM(tf.keras.Model):
         self.loss = loss
     
     def set_optimiser(self, optim = tf.keras.optimizers.Adam, learning_rate = 0.001):
+        '''please pass the optimiser as an object, not a function (i.e. without the brackets -> `tf.keras.optimizers.Adam` )'''
         self.optim = optim(learning_rate = learning_rate)
 
     def set_metrics(self, loss_metr = tf.keras.metrics.Mean(name = 'loss'), acc_metr = tf.keras.metrics.CategoricalAccuracy(name = 'acc')):
@@ -49,13 +53,13 @@ class LSTM(tf.keras.Model):
         self.set_optimiser()
 
     def reset_metrics(self): 
-        self.loss_metr.reset_states()
-        self.acc_metr.reset_states()
+        self.loss_metr.reset_state()
+        self.acc_metr.reset_state()
 
     def get_metrics(self):
         return self.loss_metr.result(), self.acc_metr.result()
 
-    @tf.function
+    # @tf.function
     def train(self, x, target):
         
         with tf.GradientTape() as tape:
@@ -93,8 +97,6 @@ class LSTM(tf.keras.Model):
             
             # do we really need all the testing stuff?????
 
-
-            
         
 
     def info(self):
