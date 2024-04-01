@@ -54,7 +54,7 @@ if __name__ == '__main__':
 
     # here the actual program starts: setting Hyperparameters
     EPOCHS = 16
-    BATCH_SIZE_PER_WORKER = 14 # 15 seems to be the sweetspot for 2500 Tokens, 3000 pad size and 10 dims
+    BATCH_SIZE_PER_WORKER = 128 # 15 seems to be the sweetspot for 2500 Tokens, 3000 pad size and 10 dims
                     # 14 for same parameters, output dim = 20 to 40
     BATCH_SIZE = BATCH_SIZE_PER_WORKER * strategy.num_replicas_in_sync
     BUFFER_SIZE = 100

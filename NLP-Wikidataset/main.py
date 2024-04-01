@@ -23,6 +23,8 @@ if __name__ == '__main__':
 
     #### split data 
     #### remove last non -null element to unk token
+    #### custom loss
+    #### checkpoints
     
     # allows memory allocation, even if memory is not continuous
     os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
