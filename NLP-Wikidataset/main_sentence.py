@@ -58,14 +58,14 @@ if __name__ == '__main__':
                     # 14 for same parameters, output dim = 20 to 40
     BATCH_SIZE = BATCH_SIZE_PER_WORKER * strategy.num_replicas_in_sync
     BUFFER_SIZE = 100
-    MAX_TOKENS = 2500
-    PAD_SIZE = 3000
+    MAX_TOKENS = 7500
+    PAD_SIZE = 264
 
     # since we're using uint16, for memory reasons, we must make sure max tokens doesn't exceed the max value of uint16
     if MAX_TOKENS > tf.uint16.max: raise ValueError(f'The variable \'MAX_TOKENS\' (value: {MAX_TOKENS}) exceeds the maximum value of a uint16 ({tf.uint16.max}).')
 
     # get the data for the vocabulary
-    raw_data = func.get_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+    raw_data = func.get_other_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
     # initialise the Tokeniser
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
 
@@ -73,14 +73,12 @@ if __name__ == '__main__':
     # with tf.device('GPU:0'):
     #     tokeniser.adapt(raw_data)
     # tokeniser.builder()
-    # tokeniser.save_layer(f'NLP-Wikidataset/model/layer/{MAX_TOKENS}_tokens/')
-    # tokeniser.save_to_file(f'full_{int(MAX_TOKENS/1000)}k.keras')
-    # tokeniser.save_to_file(f'sentence_dataset_{int(MAX_TOKENS/1000)}k_tokens.keras')
+    # tokeniser.save_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
+    # tokeniser.save_to_file(f'sentence_{int(MAX_TOKENS/1000)}k.keras')
     
     ###### code to load pre-tokenised model ######
-    tokeniser.load_layer(f'NLP-Wikidataset/model/layer/{MAX_TOKENS}_tokens/')
-    tokeniser.load_from_file(f'full_{int(MAX_TOKENS/1000)}k.keras')
-    # tokeniser.load_from_file(f'sentence_dataset_{int(MAX_TOKENS/1000)}k_tokens.keras')
+    tokeniser.load_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
+    tokeniser.load_from_file(f'sentence_{int(MAX_TOKENS/1000)}k.keras')
             
     num_data, targets = func.targenise(raw_data, tokeniser, max_tokens = MAX_TOKENS, padding = PAD_SIZE, pad_val = 0, batch_size = BATCH_SIZE)
     del raw_data    

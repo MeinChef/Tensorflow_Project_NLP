@@ -13,8 +13,8 @@ class LSTM(tf.keras.Model):
         if isinstance(layer_units, int):
             layer_units = [layer_units]
         
-        inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.int32) # still need to figure out shape 74154
-        x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
+        inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.uint16) 
+        x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim, mask_zero = True)(inputs)
 
         # x = tf.keras.layers.Masking(mask_value = -1)(x) # masking doesn't work with CUDNN for some godforsaken reason
         for units in layer_units:
@@ -22,15 +22,13 @@ class LSTM(tf.keras.Model):
         
         # x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
 
+        @tf.function
         def custom_soft(x):
             return tf.nn.softmax(x, axis = 2)
 
         outputs = tf.keras.layers.Dense(units = max_tokens, activation = custom_soft)(x)
 
         self.model = tf.keras.Model(inputs = inputs, outputs = outputs, name = 'Wikismart')
-
-    def __call__(self, x):
-        return self.call(x)
     
     @tf.function
     def call(self, x):
@@ -48,7 +46,7 @@ class LSTM(tf.keras.Model):
         self.acc_metr = acc_metr
 
     def lazy_setter(self):
-        self.set_loss()
+        self.set_loss(tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE))
         self.set_metrics()
         self.set_optimiser()
 
@@ -57,9 +55,9 @@ class LSTM(tf.keras.Model):
         self.acc_metr.reset_state()
 
     def get_metrics(self):
-        return self.loss_metr.result(), self.acc_metr.result()
-
-    # @tf.function
+        return self.loss_metr.result(), self.acc_metr.result()        
+    
+    @tf.function
     def train(self, x, target):
         
         with tf.GradientTape() as tape:
@@ -67,7 +65,7 @@ class LSTM(tf.keras.Model):
             # is loss really usable?
             loss = self.loss(target, pred)
 
-        self.loss_metr.update_state(loss)
+        #self.loss_metr.update_state(loss)
         self.acc_metr.update_state(target, pred)
         
         gradients = tape.gradient(loss, self.model.trainable_variables)
@@ -79,12 +77,27 @@ class LSTM(tf.keras.Model):
         pred = self.model(x)
         loss = self.loss(target, pred)
 
-        self.loss_metr.update_state(loss)
+        #self.loss_metr.update_state(loss)
         self.acc_metr.update_state(target, pred)
 
         return loss
+    
+    @tf.function
+    def train_step(self, data, targets):
 
-    def train_test(self, data, targets, epochs):
+        with tf.GradientTape() as tape:
+            predictions = self.model(data, training=True)
+            per_example_loss = self.loss(targets, predictions)
+            loss = tf.nn.compute_average_loss(per_example_loss)
+            model_losses = self.model.losses
+            if model_losses:
+                loss += tf.nn.scale_regularization_loss(tf.add_n(model_losses))
+
+        gradients = tape.gradient(loss, self.model.trainable_variables)
+        self.optim.apply_gradients(zip(gradients, self.model.trainable_variables))
+        return loss
+
+    def training(self, data, targets, epochs):
         loss = np.empty(epochs)
         acc = np.empty(epochs)
         for epoch in range(epochs):
@@ -96,8 +109,15 @@ class LSTM(tf.keras.Model):
             self.reset_metrics()
             
             # do we really need all the testing stuff?????
-
-        
+    
+    @tf.function  
+    def distributed_train_step(self, data, targets, strategy):
+        per_replica_losses = strategy.run(self.train_step, args=(data, targets,))
+        return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+    
+    def distributed_training(self, data, targets, strategy):
+        for x, t, in tqdm(zip(data, targets)):
+            print(self.distributed_train_step(x, t, strategy))
 
     def info(self):
         return self.model.summary()
