@@ -18,7 +18,6 @@ from model import LSTM
 #     i += 1
 # breakpoint() # execute here: np.median(mean), np.percentile(mean, perc), np.mean(mean)
 
-
 if __name__ == '__main__':
 
     #### split data 
@@ -102,9 +101,9 @@ if __name__ == '__main__':
         model.info()
         tf.print()
         
-        model.distributed_training(num_data, targets, strategy)
-        # model.training(data = num_data, targets = targets, epochs = EPOCHS)
-        model.save_to_file('trained_wiki')
+    model.distributed_training(num_data_dist, targets_dist, strategy)
+    # model.training(data = num_data, targets = targets, epochs = EPOCHS)
+    model.save_to_file('trained_wiki')
     breakpoint()
 
     a = np.zeros((1,100), np.int32)

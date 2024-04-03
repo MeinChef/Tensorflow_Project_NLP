@@ -14,11 +14,16 @@ class LSTM(tf.keras.Model):
             layer_units = [layer_units]
         
         inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.uint16) 
-        x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim, mask_zero = True)(inputs)
-
+        # x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
+        self.embedding = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)
+        x = self.embedding(inputs)
+        mask = self.embedding.compute_mask(inputs)
+        
+        
         # x = tf.keras.layers.Masking(mask_value = -1)(x) # masking doesn't work with CUDNN for some godforsaken reason
-        for units in layer_units:
-            x = tf.keras.layers.LSTM(units = units, return_sequences = True)(x)
+                
+        for units in layer_units[1:]:
+            x = tf.keras.layers.LSTM(units = units, return_sequences = True)(x, mask = mask)
         
         # x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
 
@@ -34,6 +39,10 @@ class LSTM(tf.keras.Model):
     def call(self, x):
         return self.model(x)
 
+    @tf.function
+    def custom_soft(x):
+        return tf.nn.softmax(x, axis = 2)
+
     def set_loss(self, loss = tf.keras.losses.CategoricalCrossentropy()):
         self.loss = loss
     
@@ -46,7 +55,7 @@ class LSTM(tf.keras.Model):
         self.acc_metr = acc_metr
 
     def lazy_setter(self):
-        self.set_loss(tf.keras.losses.CategoricalCrossentropy(reduction=tf.keras.losses.Reduction.NONE))
+        self.set_loss(tf.keras.losses.CategoricalCrossentropy(reduction = tf.keras.losses.Reduction.NONE))
         self.set_metrics()
         self.set_optimiser()
 
@@ -104,6 +113,7 @@ class LSTM(tf.keras.Model):
             print(f'Epoch {epoch}')
             for x, t in tqdm(zip(data, targets)):
                 self.train(x, t)
+            
 
             loss[epoch], acc[epoch] = self.get_metrics()
             self.reset_metrics()
@@ -112,12 +122,16 @@ class LSTM(tf.keras.Model):
     
     @tf.function  
     def distributed_train_step(self, data, targets, strategy):
-        per_replica_losses = strategy.run(self.train_step, args=(data, targets,))
-        return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis=None)
+        per_replica_losses = strategy.run(self.train_step, args = (data, targets,))
+        return strategy.reduce(tf.distribute.ReduceOp.SUM, per_replica_losses, axis = None)
     
-    def distributed_training(self, data, targets, strategy):
-        for x, t, in tqdm(zip(data, targets)):
-            print(self.distributed_train_step(x, t, strategy))
+    
+    def distributed_training(self, data, targets, strategy, epochs):
+        for epoch in range(epochs):
+            for count, (x, t), in tqdm(enumerate(zip(data, targets))):
+                print(self.distributed_train_step(x, t, strategy))
+                if count % 10000: self.save_to_file(path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
+            self.save_to_file(f'Epoch_{epoch}.keras')
 
     def info(self):
         return self.model.summary()
@@ -126,12 +140,12 @@ class LSTM(tf.keras.Model):
     #########################
     # methods for the model #
     #########################
-    def save_to_file(self, name = None):
+    def save_to_file(self,name = None, path = None):
         '''
         Saves the model as a .keras file.
         If no name given, saves it as model_{version}.keras. Else will save as {name}.keras
         '''
-        path = 'NLP-Wikidataset/model/LSTM'
+        if path == None: path = 'NLP-Wikidataset/model/LSTM'
         ### automatic version control: ###
         # get the contents of the 'NLP-Wikidataset/model' folder
         if name == None:
@@ -151,7 +165,7 @@ class LSTM(tf.keras.Model):
             path = f'{path}/model_{ver}.keras'
             self.model.save(path)
 
-            print('Success saving the model!')
+            tf.print('Success saving the model!')
         
         ### custom save ##
         else:

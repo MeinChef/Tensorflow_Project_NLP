@@ -38,14 +38,14 @@ def get_data(buff_size = 1000, batch_size = 128):
     #     return tf.constant(nltk.tokenize.sent_tokenize(x.numpy().decode('utf-8')))  
     # data = data.map(lambda x: make_sentences(x), num_parallel_calls = tf.data.AUTOTUNE)
     
-    data = data.shuffle(buff_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
 
     return data
 
 
 # pad the data, so that they have equal sizes
 @tf.py_function(Tout = tf.int32)
-def pad_right(x, pad_len = 100, val = 0, batch_size = 64):
+def pad_right(x, pad_len = tf.constant(100, dtype = tf.int32), val = tf.constant(0, dtype = tf.int32), batch_size = tf.constant(64, dtype = tf.int32)):
     
     # difference in padding between is and to be, can be negative
     pad_dim = pad_len.numpy() - x.shape[1]
@@ -77,15 +77,15 @@ def targenise(text_data, tokeniser, max_tokens = 25000, padding = 50000, pad_val
     
     # shifting the values one to the left to predict next word
     targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
-    num_data = num_data.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = 1)
-    targets  =  targets.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = 1)
+    num_data = num_data.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
+    targets  =  targets.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
 
     # one hot, to create 3-dimensional targets
-    targets  = num_data.map(lambda x: tf.one_hot(x, max_tokens, dtype = tf.uint16), num_parallel_calls = 1) # one-hot works only with: uint8, int8, int32, int64
+    targets  = num_data.map(lambda x: tf.one_hot(x, max_tokens, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE) # one-hot works only with: uint8, int8, int32, int64
     
     # make it less memory intensive:
-    num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.uint16))
-    targets  =  targets.map(lambda x: tf.cast(x, dtype = tf.uint16))
+    num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    targets  =  targets.map(lambda x: tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
 
 
     return num_data, targets
@@ -108,6 +108,7 @@ def generator(inputs, tokeniser, model):
     x = tf.math.argmax(x, axis = 2, output_type = tf.int32)
     vocab = np.asarray(tokeniser.layer.get_vocabulary())
     text = "".join(vocab[x.numpy()])
+    return text
     
 
 # function for getting sentences instead of full articles
@@ -115,5 +116,5 @@ def get_other_data(buff_size = 1000, batch_size = 128):
     data = tfds.load('wiki_auto/auto_full_with_split')
     data = data['full'] # HERE TAKE .take(10)
     data = data.map(lambda x: x['normal_sentence'], num_parallel_calls = tf.data.AUTOTUNE)
-    data = data.shuffle(buff_size).batch(batch_size).prefetch(tf.data.AUTOTUNE)
+    data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
     return data
