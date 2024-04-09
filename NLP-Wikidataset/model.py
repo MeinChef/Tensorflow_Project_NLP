@@ -107,15 +107,15 @@ class LSTM(tf.keras.Model):
         return loss
 
     def training(self, data, targets, epochs):
-        loss = np.empty(epochs)
-        acc = np.empty(epochs)
+        self.loss = np.empty(epochs)
+        self.acc = np.empty(epochs)
         for epoch in range(epochs):
             print(f'Epoch {epoch}')
             for x, t in tqdm(zip(data, targets)):
                 self.train(x, t)
             
 
-            loss[epoch], acc[epoch] = self.get_metrics()
+            self.loss[epoch], self.acc[epoch] = self.get_metrics()
             self.reset_metrics()
             
             # do we really need all the testing stuff?????

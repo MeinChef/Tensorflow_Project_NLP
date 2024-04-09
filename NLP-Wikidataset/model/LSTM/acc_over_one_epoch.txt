@@ -1,0 +1,6 @@
+Model of struct [128, 128, 128, 128]:
+  Accuracy: [0.92019153]
+  Loss: [0.60716611]
+Model of struct [128, 128]:
+  Accuracy: [0.92017305]
+  Loss: [0.60825783]

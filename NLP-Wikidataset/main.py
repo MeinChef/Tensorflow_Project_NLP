@@ -66,7 +66,7 @@ if __name__ == '__main__':
     if MAX_TOKENS > tf.uint16.max: raise ValueError(f'The variable \'MAX_TOKENS\' (value: {MAX_TOKENS}) exceeds the maximum value of a uint16 ({tf.uint16.max}).')
 
     # get the data for the vocabulary
-    raw_data = func.get_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+    raw_data = func.get_wiki_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
     # initialise the Tokeniser
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
 

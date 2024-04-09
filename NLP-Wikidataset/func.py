@@ -1,12 +1,7 @@
 from imports import tf
 from imports import tfds
 from imports import os
-from imports import time
-from imports import nltk
 from imports import np
-
-def timer(start):
-    print(f'{round(time.time() - start, ndigits = 4)}s have passed.')
 
 
 def check_cwd():
@@ -27,7 +22,9 @@ def check_cwd():
         except: print('This didn\'t work, please try again. \n\r')
         cwd = os.getcwd()
 
-def get_data(buff_size = 1000, batch_size = 128):
+
+
+def get_wiki_data(buff_size = 1000, batch_size = 128):
     data = tfds.load('wikipedia')
     data = data['train']
     data = data.map(lambda x: x['text'], num_parallel_calls = tf.data.AUTOTUNE)
@@ -42,17 +39,64 @@ def get_data(buff_size = 1000, batch_size = 128):
 
     return data
 
+# function for getting sentences instead of full articles
+def get_sentence_data(buff_size = 1000, batch_size = 128):
+    data = tfds.load('wiki_auto/auto_full_with_split')
+    data = data['full'] # HERE TAKE .take(10)
+    data = data.map(lambda x: x['normal_sentence'], num_parallel_calls = tf.data.AUTOTUNE)
+    data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
+    return data
 
-# pad the data, so that they have equal sizes
+
+
+
+# pad the data, so that they have equal sizes 
+
+# this function throws errors from time to time. I do not know why. And it doesn't do it alwyas. 
+# Sometimes it just goes over the entire dataset, other times it stops after the 3rd iteration. I'm at the end of my wits.
+
 @tf.py_function(Tout = tf.int32)
 def pad_right(x, pad_len = tf.constant(100, dtype = tf.int32), val = tf.constant(0, dtype = tf.int32), batch_size = tf.constant(64, dtype = tf.int32)):
     
     # difference in padding between is and to be, can be negative
-    pad_dim = pad_len.numpy() - x.shape[1]
+    pad_dim = pad_len - x.shape[1]
         
     if pad_dim >= 0:
-        # paddings = tf.constant([[0,0], [0, pad_dim]], dtype = tf.int32)
-        x = tf.pad(x, [[0,0], [0, pad_dim]], 'CONSTANT', constant_values = val.numpy())
+        try:
+            x = tf.pad(x, [[0,0], [0, pad_dim]], 'CONSTANT', constant_values = val.numpy())
+        except: raise ValueError(f'Shape of input: {x.shape}\nPad_dim: {pad_dim}')
+        
+    else: # reduce tensor to match pad_len
+        x = tf.slice(x, [0,0], size = [batch_size, pad_len])
+        
+    return x
+
+@tf.py_function(Tout = tf.int32)
+def pad_right_new(x, pad_len = 264, val = 0, batch_size = 64):
+    x = x.numpy()
+    pad_dim = pad_len - x.shape[1]
+    print(pad_dim)
+    
+    if pad_dim >= 0:
+        x = np.pad(x, [(0,0),(0,pad_dim)], 'constant')
+    else:
+        x = x[:,:pad_len]
+        print('HEY IT GOT REDUCED, DID IT DO THAT?')
+        print(x.shape)
+    
+    return x
+        
+        
+# pad right, but without the @tf.py_function decorator, gives more freedom
+def pad_right_no_tf(x, pad_len = 100, val = 0, batch_size = 64):
+    
+    # difference in padding between is and to be, can be negative
+    pad_dim = pad_len - x.shape[1]
+        
+    if pad_dim >= 0:
+        try:
+            x = tf.pad(x, [[0,0], [0, pad_dim]], 'CONSTANT', constant_values = val)
+        except: raise ValueError(f'Shape of input: {x.shape}\nPad_dim: {pad_dim}')
     else: # reduce tensor to match pad_len
         try:
             x = tf.slice(x, [0,0], size = [batch_size, pad_len])
@@ -63,8 +107,8 @@ def pad_right(x, pad_len = tf.constant(100, dtype = tf.int32), val = tf.constant
 
     return x
 
-
-def targenise(text_data, tokeniser, max_tokens = 25000, padding = 50000, pad_val = 0, batch_size = 64):
+# creating tokens and creating targets 
+def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val = 0, batch_size = 64):
     assert max_tokens <= tf.uint16.max, f'max_tokens ({max_tokens}) has a larger value than of uint16 ({tf.uint16.max})'
     
     num_data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE) # returns int64
@@ -77,8 +121,8 @@ def targenise(text_data, tokeniser, max_tokens = 25000, padding = 50000, pad_val
     
     # shifting the values one to the left to predict next word
     targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
-    num_data = num_data.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
-    targets  =  targets.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
+    num_data = num_data.map(lambda x: pad_right_new(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
+    targets  =  targets.map(lambda x: pad_right_new(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
 
     # one hot, to create 3-dimensional targets
     targets  = num_data.map(lambda x: tf.one_hot(x, max_tokens, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE) # one-hot works only with: uint8, int8, int32, int64
@@ -90,6 +134,10 @@ def targenise(text_data, tokeniser, max_tokens = 25000, padding = 50000, pad_val
 
     return num_data, targets
 
+
+
+
+
 # get input tensor, and output the indices of the max values (basically undoing the one-hot encoding)
 def make_readable(x):
     return tf.math.argmax(x, axis = 2, output_type = tf.int32)+1
@@ -100,21 +148,25 @@ def string_from_token(x, vocab):
     return "".join(vocab[x.numpy()])
 
 # given a string, predict using the model and the tokeniser
-def generator(inputs, tokeniser, model):
+def generator(inputs, tokeniser, model, pad_size = 264):
     assert type(inputs) == str, f'This isn\'t a string, but rather {type(inputs)}'
+    
+    # make tokens
     tokens = tokeniser(tf.constant([inputs], dtype = tf.string))
-    x = pad_right(tokens)
-    x = model(tokens)
-    x = tf.math.argmax(x, axis = 2, output_type = tf.int32)
+    tokens = tf.cast(tokens, dtype = tf.int32)
+    
+    # padding
+    x = pad_right_no_tf(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
+    # creating predictions
+    x = model(x)
+    # selecting the ones with the highest probs
+    _, indices = tf.math.top_k(x, k = 2)
+    # tf.gather should be useful, according to the documentation, but I can't figure it out
+    # z = tf.math.argmax(x, axis = 2, output_type = tf.int32)
+    # y = tf.math.argmax(x, axis = 1, output_type = tf.int32)
+    # w = tf.math.argmax(x, axis = 0, output_type = tf.int32)
+    # make things readable
     vocab = np.asarray(tokeniser.layer.get_vocabulary())
+    breakpoint()
     text = "".join(vocab[x.numpy()])
     return text
-    
-
-# function for getting sentences instead of full articles
-def get_other_data(buff_size = 1000, batch_size = 128):
-    data = tfds.load('wiki_auto/auto_full_with_split')
-    data = data['full'] # HERE TAKE .take(10)
-    data = data.map(lambda x: x['normal_sentence'], num_parallel_calls = tf.data.AUTOTUNE)
-    data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
-    return data
