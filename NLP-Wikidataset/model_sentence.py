@@ -86,9 +86,9 @@ class LSTM(tf.keras.Model):
             if extension: self.save_to_file(f'Sentence_Epoch{epoch + start}_{extension}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
             else: self.save_to_file(f'Sentence_Epoch{epoch}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
             
-        if text_file:
-            with open(text_file, 'a') as file:
-                file.write(f'Epoch {epoch}:\n  Acc: {self.acc[epoch]}\n  Loss: {self.loss[epoch]}')
+            if text_file:
+                with open(text_file, 'a') as file:
+                    file.write(f'Epoch {epoch}:\n  Acc: {self.acc[epoch]}\n  Loss: {self.loss[epoch]}')
                 
 
     def info(self):
