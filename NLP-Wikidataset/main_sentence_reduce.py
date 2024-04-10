@@ -30,3 +30,9 @@ if __name__ == '__main__':
     
     with tf.device('GPU:0'):
         model.training(num_data, targets, 1)
+        
+    model.save_to_file(f'trained_sentence_{[64 for _ in range(6)]}_{192}')
+  
+    with open('NLP-Wikidataset/model/LSTM/acc.txt', 'a') as file:
+        file.write(f'Model of struct {[64 for _ in range(6)]}\nand Embeddings of {192}:\n  Accuracy: {model.acc}\n  Loss: {model.loss}\n')
+    

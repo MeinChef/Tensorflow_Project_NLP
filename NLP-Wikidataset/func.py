@@ -148,19 +148,22 @@ def string_from_token(x, vocab):
     return "".join(vocab[x.numpy()])
 
 # given a string, predict using the model and the tokeniser
-def generator(inputs, tokeniser, model, pad_size = 264):
+def generator(inputs, tokeniser, model, length = 50,  pad_size = 264):
     assert type(inputs) == str, f'This isn\'t a string, but rather {type(inputs)}'
     
     # make tokens
     tokens = tokeniser(tf.constant([inputs], dtype = tf.string))
     tokens = tf.cast(tokens, dtype = tf.int32)
     
-    # padding
-    x = pad_right_no_tf(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
-    # creating predictions
-    x = model(x)
+
     # selecting the ones with the highest probs
-    _, indices = tf.math.top_k(x, k = 2)
+    for _ in range(length):
+            # padding
+        x = pad_right_no_tf(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
+        # creating predictions
+        x = model(x)
+        _, indices = tf.math.top_k(x, k = 2)
+        breakpoint()
     # tf.gather should be useful, according to the documentation, but I can't figure it out
     # z = tf.math.argmax(x, axis = 2, output_type = tf.int32)
     # y = tf.math.argmax(x, axis = 1, output_type = tf.int32)
