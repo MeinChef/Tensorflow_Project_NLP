@@ -13,17 +13,16 @@ class LSTM(tf.keras.Model):
         if isinstance(layer_units, int):
             layer_units = [layer_units]
         
+        # neither the tf.keras.Input nor the Inputs layer does accept the keyword ragged = True.
         inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.uint16) 
-        # x = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)(inputs)
         self.embedding = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)
         x = self.embedding(inputs)
         mask = self.embedding.compute_mask(inputs)
         
         x = tf.keras.layers.LSTM(units = layer_units[0], return_sequences = True)(x, mask = mask)
-        for units in layer_units[1:]:
+        for units in layer_units[:]:
             x = tf.keras.layers.LSTM(units = units, return_sequences = True)(x)
         
-        # x = tf.keras.layers.LSTM(units = layer_units[-1])(x)
 
         x = tf.keras.layers.Dense(units = max_tokens, activation = None)(x)
         outputs = tf.keras.layers.Softmax(axis = 2)(x)
@@ -41,7 +40,7 @@ class LSTM(tf.keras.Model):
         '''please pass the optimiser as an object, not a function (i.e. without the brackets -> `tf.keras.optimizers.Adam` )'''
         self.optim = optim(learning_rate = learning_rate)
 
-    def set_metrics(self, loss_metr = tf.keras.metrics.Mean(name = 'loss'), acc_metr = tf.keras.metrics.CategoricalAccuracy(name = 'acc')):
+    def set_metrics(self, loss_metr = tf.keras.metrics.Mean(name = 'loss'), acc_metr = tf.keras.metrics.SparseCategoricalAccuracy(name = 'acc')):
         self.loss_metr = loss_metr
         self.acc_metr = acc_metr
 
@@ -71,18 +70,15 @@ class LSTM(tf.keras.Model):
         gradients = tape.gradient(loss, self.model.trainable_variables)
         self.optim.apply_gradients(zip(gradients, self.model.trainable_variables))
 
-    def training(self, data, targets, epochs, extension = None, start = 0, text_file = None):
+    def training(self, data, epochs, extension = None, start = 0, text_file = None):
         self.loss = np.empty(epochs)
         self.acc = np.empty(epochs)
         
         train_epochs = epochs - start
-        print(train_epochs, epochs, start)
-        
         for epoch in range(train_epochs):
             print(f'Epoch {epoch + start}')
-            for x, t in tqdm(zip(data, targets)):
+            for x, t in tqdm(data):
                 self.train(x, t)
-
 
             self.loss[epoch], self.acc[epoch] = self.get_metrics()
             self.reset_metrics()
@@ -93,9 +89,7 @@ class LSTM(tf.keras.Model):
         if text_file:
             with open(text_file, 'a') as file:
                 file.write(f'Epoch {epoch}:\n  Acc: {self.acc[epoch]}\n  Loss: {self.loss[epoch]}')
-            
-            
-            
+                
 
     def info(self):
         return self.model.summary()

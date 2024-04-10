@@ -9,7 +9,7 @@ class Tokeniser(tf.keras.Model):
         super().__init__()
 
         self.inputs = tf.keras.Input(shape = (1,), dtype = tf.string)
-        self.layer = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = output_mode, vocabulary = vocab)
+        self.layer = tf.keras.layers.TextVectorization(max_tokens = max_tokens, output_mode = output_mode, vocabulary = vocab, ragged = True)
 
 
     @tf.function

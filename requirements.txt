@@ -1,5 +1,6 @@
 matplotlib
 tensorflow
+tensorflow_text
 tensorflow_datasets
 numpy
 pytorch

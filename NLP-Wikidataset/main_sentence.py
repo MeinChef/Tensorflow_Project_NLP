@@ -70,42 +70,42 @@ if __name__ == '__main__':
     # since we're using uint16, for memory reasons, we must make sure max tokens doesn't exceed the max value of uint16
     if MAX_TOKENS > tf.uint16.max: raise ValueError(f'The variable \'MAX_TOKENS\' (value: {MAX_TOKENS}) exceeds the maximum value of a uint16 ({tf.uint16.max}).')
 
-    # get the data for the vocabulary
-    raw_data = func.get_sentence_data(buff_size = BUFFER_SIZE, batch_size = BATCH_SIZE)
+    # get the data for the vocabularydiff
+    raw_data = func.get_sentence_data(buff_size = BUFFER_SIZE, batch_size = 1024)
     # initialise the Tokeniser
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
 
     ####### code to get tokeniser ######
-    # with tf.device('GPU:0'):
-    #     tokeniser.adapt(raw_data)
-    # tokeniser.builder()
-    # tokeniser.save_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
-    # tokeniser.save_to_file(f'sentence_{int(MAX_TOKENS/1000)}k.keras')
+    with tf.device('GPU:0'):
+        tokeniser.adapt(raw_data)
+    tokeniser.builder()
+    tokeniser.save_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
+    tokeniser.save_to_file(f'sentence_{int(MAX_TOKENS/1000)}k_ragged.keras')
     
     ###### code to load pre-tokenised model ######
     tokeniser.load_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
-    tokeniser.load_from_file(f'sentence_{int(MAX_TOKENS/1000)}k.keras')
+    tokeniser.load_from_file(f'sentence_{int(MAX_TOKENS/1000)}k_ragged.keras')
             
-    num_data, targets = func.targenise(raw_data, tokeniser, max_tokens = MAX_TOKENS, padding = PAD_SIZE, pad_val = 0, batch_size = BATCH_SIZE)
+    data = func.targenise(raw_data, tokeniser, max_tokens = MAX_TOKENS, padding = PAD_SIZE, pad_val = 0, batch_size = BATCH_SIZE, buff_size = BUFFER_SIZE)
     del raw_data    
     
     start = [16, 8, 0, 0]
     layer_units = [[64 for _ in range(6)], [64 for _ in range(6)], [64, 64, 64], [64, 64, 64]] # half and quarter of gpt2-hidden layers
     embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
-    index = 1
+    index = 2
     
     ###################### continue training at 192, 64*6, epoch 8
 
 
            
-    model = get_model(layer_units[index], embed_dim[index], PAD_SIZE, MAX_TOKENS)    
-   
-    model.load_from_file(name = f'Sentence_Epoch{start[index]-1}_{layer_units[index]}_{embed_dim[index]}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
-
-    print(f'Continue training from Epoch {start[index]}...')
+    model = get_model(layer_units[index], embed_dim[index], PAD_SIZE, MAX_TOKENS)
+        
+    if start[index] != 0:
+        model.load_from_file(name = f'Sentence_Epoch{start[index]-1}_{layer_units[index]}_{embed_dim[index]}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
+        print(f'Continue training from Epoch {start[index]}...')
 
     with tf.device('GPU:0'):
-        model.training(num_data, targets, EPOCHS, extension = f'{layer_units[index]}_{embed_dim[index]}', start = start[index], text_file = 'NLP-Wikidataset/model/LSTM/acc.txt')
+        model.training(data, EPOCHS, extension = f'{layer_units[index]}_{embed_dim[index]}', start = start[index], text_file = 'NLP-Wikidataset/model/LSTM/acc.txt')
 
     model.save_to_file(f'trained_sentence_{layer_units[index]}_{embed_dim[index]}')
   

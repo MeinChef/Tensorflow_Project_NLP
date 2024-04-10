@@ -2,6 +2,7 @@ from imports import tf
 from imports import tfds
 from imports import os
 from imports import np
+from imports import tf_text
 
 
 def check_cwd():
@@ -56,7 +57,7 @@ def get_sentence_data(buff_size = 1000, batch_size = 128):
 # Sometimes it just goes over the entire dataset, other times it stops after the 3rd iteration. I'm at the end of my wits.
 
 @tf.py_function(Tout = tf.int32)
-def pad_right(x, pad_len = tf.constant(100, dtype = tf.int32), val = tf.constant(0, dtype = tf.int32), batch_size = tf.constant(64, dtype = tf.int32)):
+def pad_right_old(x, pad_len = tf.constant(100, dtype = tf.int32), val = tf.constant(0, dtype = tf.int32), batch_size = tf.constant(64, dtype = tf.int32)):
     
     # difference in padding between is and to be, can be negative
     pad_dim = pad_len - x.shape[1]
@@ -88,51 +89,82 @@ def pad_right_new(x, pad_len = 264, val = 0, batch_size = 64):
         
         
 # pad right, but without the @tf.py_function decorator, gives more freedom
-def pad_right_no_tf(x, pad_len = 100, val = 0, batch_size = 64):
+def pad_right(x, pad_len = 100, val = 0, batch_size = 64):
     
     # difference in padding between is and to be, can be negative
-    pad_dim = pad_len - x.shape[1]
+    pad_dim = pad_len - tf.shape(x)[1]
+    breakpoint()
         
     if pad_dim >= 0:
-        try:
-            x = tf.pad(x, [[0,0], [0, pad_dim]], 'CONSTANT', constant_values = val)
-        except: raise ValueError(f'Shape of input: {x.shape}\nPad_dim: {pad_dim}')
+        paddings = tf.constant([[0,0], [0, tf.get_static_value(pad_dim)]])
+        x = tf.pad(x, paddings, 'CONSTANT', constant_values = val)
     else: # reduce tensor to match pad_len
-        try:
-            x = tf.slice(x, [0,0], size = [batch_size, pad_len])
-        except:
+        x = x[:,:pad_len]
+            # x = tf.slice(x, [0,0], size = [batch_size, pad_len])
             # prints for making sure stuff works
-            tf.print(f'Shape of Result: {x.shape}')
-            tf.print(f'Padding Dimension: {pad_dim}')
+            # tf.print(f'Shape of Result: {x.shape}')
+            # tf.print(f'Padding Dimension: {pad_dim}')
 
     return x
 
 # creating tokens and creating targets 
-def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val = 0, batch_size = 64):
+def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val = 0, batch_size = 64, buff_size = 1000):
     assert max_tokens <= tf.uint16.max, f'max_tokens ({max_tokens}) has a larger value than of uint16 ({tf.uint16.max})'
     
-    num_data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE) # returns int64
-    num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.int32), num_parallel_calls = tf.data.AUTOTUNE)
+    # rolling/shifting doesn't work on ragged tensors, that's why the unbatching
+    data = text_data.map(lambda x: tokeniser(x), num_parallel_calls = tf.data.AUTOTUNE).unbatch() # returns int64 and ragged tensors
 
-    
     # some garbage collection
     del text_data
     del tokeniser
     
     # shifting the values one to the left to predict next word
-    targets = num_data.map(lambda x: tf.roll(input = x, shift = -1, axis = 1), num_parallel_calls = tf.data.AUTOTUNE)
-    num_data = num_data.map(lambda x: pad_right_new(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
-    targets  =  targets.map(lambda x: pad_right_new(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
-
-    # one hot, to create 3-dimensional targets
-    targets  = num_data.map(lambda x: tf.one_hot(x, max_tokens, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE) # one-hot works only with: uint8, int8, int32, int64
+    data = data.map(lambda x: \
+                            (
+                                x, 
+                                tf.roll(input = x, shift = -1, axis = 0)
+                            ),
+                        num_parallel_calls = tf.data.AUTOTUNE
+                    )
     
-    # make it less memory intensive:
-    num_data = num_data.map(lambda x: tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
-    targets  =  targets.map(lambda x: tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    # pad the data to the right shape
+    data = data.map(lambda x, t: \
+                            (
+                                tf_text.pad_model_inputs(x, padding, pad_val),
+                                tf_text.pad_model_inputs(t, padding, -1)
+                            ),
+                        num_parallel_calls = tf.data.AUTOTUNE
+                    )
+    
+    # optimise resources
+    data = data.map(lambda x, t: \
+                            (
+                                tf.cast(x[0], dtype = tf.uint16),
+                                tf.cast(t[0], dtype = tf.uint16)
+                            ),
+                        num_parallel_calls = tf.data.AUTOTUNE
+                    )
 
+    data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
+    
+    # num_data = num_data.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
+    # targets  =  targets.map(lambda x: pad_right(x, padding, pad_val, batch_size), num_parallel_calls = tf.data.AUTOTUNE)
 
-    return num_data, targets
+    # targets = targets.map(lambda x: tf_text.pad_model_inputs(x, padding, -1)) # padding with -1 results in one hot encoding not using 1s anywhere
+    # targets = targets.map(lambda x, _: (tf.one_hot(x, max_tokens)), num_parallel_calls = tf.data.AUTOTUNE) # one-hot works only with: uint8, int8, int32, int64
+    
+
+    
+    # num_data = num_data.map(lambda x: tf_text.pad_model_inputs(x, padding, pad_val))
+
+    
+    # num_data = num_data.map(lambda x, _: tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+    # targets  =  targets.map(lambda x   : tf.cast(x, dtype = tf.uint16), num_parallel_calls = tf.data.AUTOTUNE).prefetch(tf.data.AUTOTUNE)
+
+    # num_data = num_data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
+    # targets  =  targets.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
+
+    return data
 
 
 
@@ -159,7 +191,7 @@ def generator(inputs, tokeniser, model, length = 50,  pad_size = 264):
     # selecting the ones with the highest probs
     for _ in range(length):
             # padding
-        x = pad_right_no_tf(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
+        x = pad_right(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
         # creating predictions
         x = model(x)
         _, indices = tf.math.top_k(x, k = 2)
