@@ -12,11 +12,13 @@ from model_sentence import LSTM
 
 # code used for this: (unbatched data)
 # i = 0
-# mean = np.empty(6672479)
+# mean = np.empty(len(data))
 # for elem in raw_data:
 #     mean[i] = len(elem.numpy())
 #     i += 1
 # breakpoint() # execute here: np.median(mean), np.percentile(mean, perc), np.mean(mean)
+
+
 def get_model(layers, dim, pad_size, max_tokens):
     
     model = LSTM(layer_units = layers, pad_size = pad_size, max_tokens = max_tokens, output_dim = dim)
@@ -28,105 +30,90 @@ def get_model(layers, dim, pad_size, max_tokens):
 
 
 if __name__ == '__main__':
-
-    #### split data 
-    #### remove last non -null element to unk token
     
     # allows memory allocation, even if memory is not continuous
     os.environ['TF_GPU_ALLOCATOR'] = 'cuda_malloc_async'
-    # some very interesting setup stuff
-    # tf.debugging.set_log_device_placement(True)
-    # gpus = tf.config.list_physical_devices('GPU')
-
-
-    # if gpus:
-    #     print("Num GPUs Available: ", len(gpus))
-    #     try:
-    #         strategy = tf.distribute.MirroredStrategy()
-    #         for gpu in gpus:
-    #             # Allocate 6.5 GB of memory to each GPU
-    #             tf.config.set_logical_device_configuration(gpu, [tf.config.LogicalDeviceConfiguration(memory_limit = 7168)])
-    #             
-    #             # set memory_growth = True 
-    #             # tf.config.experimental.set_memory_growth(gpu, True)
-    #         logical_gpus = tf.config.list_logical_devices('GPU')
-    #         print(len(gpus), "Physical GPUs,", len(logical_gpus), "Logical GPUs")
-    #     except RuntimeError as e:
-    #         # Virtual devices must be set before GPUs have been initialised
-    #         print(e)
 
     # ensures that the working directory is set correctly, to work with Tokeniser.save_to_file() and LSTM.save_to_file()
     func.check_cwd()
 
 
-
     # here the actual program starts: setting Hyperparameters
-    EPOCHS = 16
+    EPOCHS = 10
     BATCH_SIZE = 64
     BUFFER_SIZE = 100
     MAX_TOKENS = 10000
     PAD_SIZE = 264
 
+    # and initialising variables for training different networks
+    start = [0, 0, 10, 0]
+    layer_units = [[64 for _ in range(6)], [64 for _ in range(6)], [64, 64, 64], [64, 64, 64]] # half and quarter of gpt2-hidden layers
+    embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
+
     # since we're using uint16, for memory reasons, we must make sure max tokens doesn't exceed the max value of uint16
     if MAX_TOKENS > tf.uint16.max: raise ValueError(f'The variable \'MAX_TOKENS\' (value: {MAX_TOKENS}) exceeds the maximum value of a uint16 ({tf.uint16.max}).')
 
-    # get the data for the vocabularydiff
-    raw_data = func.get_sentence_data(buff_size = BUFFER_SIZE, batch_size = 1024)
+    # get the data for the vocabulary
+    data = func.get_sentence_data(buff_size = BUFFER_SIZE, batch_size = 1024)
     # initialise the Tokeniser
     tokeniser = Tokeniser(max_tokens = MAX_TOKENS)
 
-    ####### code to get tokeniser ######
+    # adapt the text to tokens
     with tf.device('GPU:0'):
-        tokeniser.adapt(raw_data)
+        tokeniser.adapt(data)
     tokeniser.builder()
+    
+    # save the tokeniser
     tokeniser.save_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
     tokeniser.save_to_file(f'sentence_{int(MAX_TOKENS/1000)}k_ragged.keras')
     
-    ###### code to load pre-tokenised model ######
+    # load already adapted tokeniser
     tokeniser.load_layer(f'NLP-Wikidataset/model/layer/sentence_{MAX_TOKENS}/')
     tokeniser.load_from_file(f'sentence_{int(MAX_TOKENS/1000)}k_ragged.keras')
             
-    data = func.targenise(raw_data, tokeniser, max_tokens = MAX_TOKENS, padding = PAD_SIZE, pad_val = 0, batch_size = BATCH_SIZE, buff_size = BUFFER_SIZE)
-    del raw_data    
-    
-    start = [0, 0, 7, 0]
-    layer_units = [[64 for _ in range(6)], [64 for _ in range(6)], [64, 64, 64], [64, 64, 64]] # half and quarter of gpt2-hidden layers
-    embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
-    index = 2
-    
-    ###################### continue training at 192, 64*6, epoch 8
-
-
-           
-    model = get_model(layer_units[index], embed_dim[index], PAD_SIZE, MAX_TOKENS)
+    # transform the sentences to tokens and create targets
+    data = func.targenise(
+        text_data = data, 
+        tokeniser = tokeniser,
+        max_tokens = MAX_TOKENS,
+        padding = PAD_SIZE,
+        pad_val = 0,
+        batch_size = BATCH_SIZE,
+        buff_size = BUFFER_SIZE
+        )
         
-    if start[index] != 0:
-        model.load_from_file(name = f'Sentence_Epoch{start[index]-1}_{layer_units[index]}_{embed_dim[index]}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
-        print(f'Continue training from Epoch {start[index]}...')
 
-    with tf.device('GPU:0'):
-        model.training(data, EPOCHS, extension = f'{layer_units[index]}_{embed_dim[index]}', start = start[index], text_file = 'NLP-Wikidataset/model/LSTM/acc.txt')
+    # the training loop for the different networks
+    for index in range(len(start)):
+        
+        # initialise model with hyperparameters
+        model = get_model(layer_units[index], embed_dim[index], PAD_SIZE, MAX_TOKENS)
+        
+        # if there has been a trained model, continue training from there   
+        if start[index] != 0:
+            model.load_from_file(
+                name = f'Sentence_Epoch{start[index]-1}_{layer_units[index]}_{embed_dim[index]}', 
+                path = 'NLP-Wikidataset/model/LSTM/training_checkpoints'
+                )
+            
+            print(f'Continue training from Epoch {start[index]}...')
+            
+        # and do the actual training
+        with tf.device('GPU:0'):
+            model.training(
+                data, 
+                EPOCHS, 
+                extension = f'{layer_units[index]}_{embed_dim[index]}', 
+                start = start[index], 
+                text_file = 'NLP-Wikidataset/model/LSTM/acc_over_one_epoch.txt'
+                )
+            
+        # save the model
+        model.save_to_file(f'trained_sentence_{layer_units[index]}_{embed_dim[index]}')
+        
+        # and the accuracies etc
+        with open('NLP-Wikidataset/model/LSTM/acc.txt', 'a') as file:
+            file.write(f'Model of struct {layer_units[index]}\nand Embeddings of {embed_dim[index]}:\n  Accuracy: {model.acc}\n  Loss: {model.loss}\n')
+        
 
-    model.save_to_file(f'trained_sentence_{layer_units[index]}_{embed_dim[index]}')
-  
-    with open('NLP-Wikidataset/model/LSTM/acc.txt', 'a') as file:
-        file.write(f'Model of struct {layer_units[index]}\nand Embeddings of {embed_dim[index]}:\n  Accuracy: {model.acc}\n  Loss: {model.loss}\n')
-    
-    
     breakpoint()
-
-    # a = np.zeros((1,100), np.int32)
-    # a[0][0] = 15
-    # print(a)
-    
-    # result = model(a)
-    # b = func.make_readable(result)
-    
-    # try:
-    #     d = func.string_from_token(b[0], tokeniser.layer.get_vocabulary())
-    # except:
-    #     pass
-    
-    
-
-    # breakpoint()
