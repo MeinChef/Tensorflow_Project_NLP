@@ -1,7 +1,7 @@
 .git/
 __pycache__/
 dataset/
-halp.py
+halp*
 model_*
 tokeniser copy.py
 string.txt
@@ -9,3 +9,7 @@ string.txt
 file.txt
 GPT2_Bert_Wikipedia/gpt2/
 GPT2_Bert_Wikipedia/bert/
+training_checkpoints/
+old_wiki_code/
+
+!model_sentence.py

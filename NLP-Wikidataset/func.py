@@ -131,7 +131,7 @@ def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val =
     data = data.map(lambda x, t: \
                             (
                                 tf_text.pad_model_inputs(x, padding, pad_val),
-                                tf_text.pad_model_inputs(t, padding, -1)
+                                tf_text.pad_model_inputs(t, padding, pad_val)
                             ),
                         num_parallel_calls = tf.data.AUTOTUNE
                     )
@@ -144,6 +144,10 @@ def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val =
                             ),
                         num_parallel_calls = tf.data.AUTOTUNE
                     )
+
+    for elem, _ in data:
+        print(elem)
+        break
 
     data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
     
@@ -180,18 +184,19 @@ def string_from_token(x, vocab):
     return "".join(vocab[x.numpy()])
 
 # given a string, predict using the model and the tokeniser
-def generator(inputs, tokeniser, model, length = 50,  pad_size = 264):
+def generator(inputs, tokeniser, model, length = 50,  pad_size = 264, pad_value = 0):
     assert type(inputs) == str, f'This isn\'t a string, but rather {type(inputs)}'
     
     # make tokens
     tokens = tokeniser(tf.constant([inputs], dtype = tf.string))
     tokens = tf.cast(tokens, dtype = tf.int32)
     
-
+    
+    
     # selecting the ones with the highest probs
     for _ in range(length):
-            # padding
-        x = pad_right(tokens, pad_len = tf.constant(pad_size, dtype = tf.int32))
+        # padding
+        x, mask = tf_text.pad_model_inputs(tokens, pad_size, 0)
         # creating predictions
         x = model(x)
         _, indices = tf.math.top_k(x, k = 2)

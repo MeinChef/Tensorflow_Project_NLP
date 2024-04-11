@@ -5,7 +5,7 @@ from imports import os
 from tqdm import tqdm
 
 class LSTM(tf.keras.Model):
-    def __init__(self, layer_units = [64, 64], embed_size = 74154, max_tokens = 50000, output_dim = 10):
+    def __init__(self, layer_units = [64, 64, 64], pad_size = 264, max_tokens = 10000, output_dim = 100):
         
         super().__init__()
 
@@ -14,7 +14,7 @@ class LSTM(tf.keras.Model):
             layer_units = [layer_units]
         
         # neither the tf.keras.Input nor the Inputs layer does accept the keyword ragged = True.
-        inputs = tf.keras.Input(shape = (embed_size,), dtype = tf.uint16) 
+        inputs = tf.keras.Input(shape = (pad_size,), dtype = tf.uint16) 
         self.embedding = tf.keras.layers.Embedding(input_dim = max_tokens, output_dim = output_dim)
         x = self.embedding(inputs)
         mask = self.embedding.compute_mask(inputs)
@@ -84,11 +84,11 @@ class LSTM(tf.keras.Model):
             self.reset_metrics()
             
             if extension: self.save_to_file(f'Sentence_Epoch{epoch + start}_{extension}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
-            else: self.save_to_file(f'Sentence_Epoch{epoch}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
+            else: self.save_to_file(f'Sentence_Epoch{epoch + start}', path = 'NLP-Wikidataset/model/LSTM/training_checkpoints')
             
             if text_file:
                 with open(text_file, 'a') as file:
-                    file.write(f'Epoch {epoch}:\n  Acc: {self.acc[epoch]}\n  Loss: {self.loss[epoch]}')
+                    file.write(f'\nEpoch {epoch + start}:\n  Acc: {self.acc[epoch]}\n  Loss: {self.loss[epoch]}')
                 
 
     def info(self):

@@ -19,7 +19,7 @@ from model_sentence import LSTM
 # breakpoint() # execute here: np.median(mean), np.percentile(mean, perc), np.mean(mean)
 def get_model(layers, dim, pad_size, max_tokens):
     
-    model = LSTM(layer_units = layers, embed_size = pad_size, max_tokens = max_tokens, output_dim = dim)
+    model = LSTM(layer_units = layers, pad_size = pad_size, max_tokens = max_tokens, output_dim = dim)
     model.lazy_setter()
     model.info()
     tf.print()
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     data = func.targenise(raw_data, tokeniser, max_tokens = MAX_TOKENS, padding = PAD_SIZE, pad_val = 0, batch_size = BATCH_SIZE, buff_size = BUFFER_SIZE)
     del raw_data    
     
-    start = [16, 8, 0, 0]
+    start = [0, 0, 7, 0]
     layer_units = [[64 for _ in range(6)], [64 for _ in range(6)], [64, 64, 64], [64, 64, 64]] # half and quarter of gpt2-hidden layers
     embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
     index = 2
