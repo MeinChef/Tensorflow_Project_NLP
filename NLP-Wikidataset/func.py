@@ -3,6 +3,7 @@ from imports import tfds
 from imports import os
 from imports import np
 from imports import tf_text
+from imports import plt
 
 
 def check_cwd():
@@ -82,6 +83,46 @@ def targenise(text_data, tokeniser, max_tokens = 10000, padding = 264, pad_val =
     data = data.shuffle(buff_size).batch(batch_size, drop_remainder = True).prefetch(tf.data.AUTOTUNE)
     return data
 
+def plot_acc_loss(data, specs, epochs):
+    pass
+
+    # assert data.shape == (8, epochs), f'Shape of the input data is off: expeced (8,10), got {data.shape}.'
+    assert isinstance(specs, tuple), f'Expected tuple, got {type(specs)} instead.'
+    
+    x_ax = np.arange(1, epochs + 1)
+    strs = []
+    for struc, emb in zip(specs[0], specs[1]):
+        strs.append(f'[{struc}] {emb}')
+        
+    assert len(strs) == len(specs[0])
+        
+    acc = (data[::2, :] * 100).T
+    loss = data[1::2, :].T
+    
+    fig, ax = plt.subplots(nrows = 1, ncols = 2, sharex = True)
+    
+    fig.set_size_inches(10, 5)
+        
+    ax[0].plot(x_ax, acc,  label = strs)
+    ax[0].set_xlabel('Epochs')
+    ax[0].set_ylabel('Accuracy in %')
+    ax[0].set_title('Accuracy of the different models')
+    ax[0].legend(title = '[Layers] Embedding')
+    
+    
+    ax[1].plot(x_ax, loss, label = strs)
+    ax[1].set_xlabel('Epochs')
+    ax[1].set_ylabel('Loss')
+    ax[1].set_title('Loss of the different models')
+    ax[1].legend(title = '[Layers] Embedding')
+    
+    return fig, ax
+    
+    
+        
+    
+    
+
 
 # get input tensor, and output the indices of the max values (basically undoing the one-hot encoding)
 def make_readable(x):
@@ -93,31 +134,53 @@ def string_from_token(x, vocab):
     return "".join(vocab[x.numpy()])
 
 # given a string, predict using the model and the tokeniser
-def generator(inputs, tokeniser, model, length = 50,  pad_size = 264, pad_value = 0):
+def generator(inputs, tokeniser, model, length = 50,  pad_size = 264, pad_value = 0, search_depth = 3):
     assert type(inputs) == str, f'This isn\'t a string, but rather {type(inputs)}'
-    
+    assert search_depth > 0, f'Search depth is 0 or less than 0.'
+    assert length > search_depth 
+        
     # make tokens
-    tokens = tokeniser(tf.constant([inputs], dtype = tf.string))
-    tokens = tf.cast(tokens, dtype = tf.int32)
-    
-    
-    
+    out = tokeniser(tf.constant([inputs], dtype = tf.string))
+    out = out.to_list()[0]
+        
     # selecting the ones with the highest probs
     for _ in range(length):
-        # padding
-        x, mask = tf_text.pad_model_inputs(tokens, pad_size, 0)
-        # creating predictions
-        x = model(x)
-        _, indices = tf.math.top_k(x, k = 2)
-        breakpoint()
-    # tf.gather should be useful, according to the documentation, but I can't figure it out
-    # z = tf.math.argmax(x, axis = 2, output_type = tf.int32)
-    # y = tf.math.argmax(x, axis = 1, output_type = tf.int32)
-    # w = tf.math.argmax(x, axis = 0, output_type = tf.int32)
-    # make things readable
+        
+        with tf.device('GPU:1'):
+            # padding
+            x, _ = tf_text.pad_model_inputs(tf.ragged.constant([out]), pad_size, pad_value)
+            
+            # creating predictions
+            x = model(x)
+            
+            # getting the top search_depth predictions
+            _, new_tokens = tf.math.top_k(x, k = search_depth + 2, sorted = False)
+            new_tokens = tf.squeeze(new_tokens)
+            
+            # filtering out the predictions for our current last token
+            new_tokens = new_tokens[len(out)-1, :]
+                
+        
+
+        
+        # keep it from looping 3 words over and over again    
+        for idx in range(search_depth):
+            #                                          if the best fit wold be <UNK>, ignore it
+            if new_tokens[idx] not in out[:-search_depth] and new_tokens[idx] != 1:
+                out.append(new_tokens[idx].numpy())
+                break
+            
+            # no fitting token was found:
+            if idx == search_depth - 1:
+                print(f'Found no token that\'s in the specified search depth of {search_depth}.\nResuming with nex best guess...')
+                # check if this is now an <UNK> token
+                if new_tokens[idx+1] != 1:
+                    out.append(new_tokens[idx+1].numpy())
+                else:
+                    out.append(new_tokens[idx+2].numpy())
+ 
     vocab = np.asarray(tokeniser.layer.get_vocabulary())
-    breakpoint()
-    text = "".join(vocab[x.numpy()])
+    text = " ".join(vocab[np.asarray(out)])
     return text
 
 

@@ -20,7 +20,7 @@ class LSTM(tf.keras.Model):
         mask = self.embedding.compute_mask(inputs)
         
         x = tf.keras.layers.LSTM(units = layer_units[0], return_sequences = True)(x, mask = mask)
-        for units in layer_units[:]:
+        for units in layer_units[1:]:
             x = tf.keras.layers.LSTM(units = units, return_sequences = True)(x)
         
 

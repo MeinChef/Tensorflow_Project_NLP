@@ -46,10 +46,14 @@ if __name__ == '__main__':
     PAD_SIZE = 264
 
     # and initialising variables for training different networks
-    start = [0, 0, 10, 0]
-    layer_units = [[64 for _ in range(6)], [64 for _ in range(6)], [64, 64, 64], [64, 64, 64]] # half and quarter of gpt2-hidden layers
-    embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
-
+    # start = [0, 0, 0, 0]
+    # layer_units = [[64 for _ in range(7)], [64 for _ in range(7)], [64 for _ in range(4)], [64 for _ in range(4)]] # half and quarter of gpt2-hidden layers
+    # embed_dim = [384, 192, 384, 192] # half and quarter of gpt2-embedding
+    
+    start = [2]
+    layer_units = [[128]]
+    embed_dim = [384]
+    
     # since we're using uint16, for memory reasons, we must make sure max tokens doesn't exceed the max value of uint16
     if MAX_TOKENS > tf.uint16.max: raise ValueError(f'The variable \'MAX_TOKENS\' (value: {MAX_TOKENS}) exceeds the maximum value of a uint16 ({tf.uint16.max}).')
 
