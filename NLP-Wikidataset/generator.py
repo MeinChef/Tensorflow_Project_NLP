@@ -12,10 +12,10 @@ if __name__ == '__main__':
     
     # load Model 
     model = LSTM()
-    model.lazy_setter()
-    model.info()
     # the model with [64,64,64,64] 192 performed best
-    model.load_from_file('trained_sentence_[64, 64, 64, 64]_192.keras')
+    model.load_from_file('trained_sentence_[128]_384.keras')
+    model.info()
+
     
     # prompt snippets
     races = ["Asian", "Black", "Hispanic", "Indian", "White"]
@@ -24,7 +24,7 @@ if __name__ == '__main__':
 
     nwln = '\n    '
     out_file = 'NLP-Wikidataset/predictions.txt'
-    max_len = 10
+    max_len = 20
     
     with open(out_file, 'a') as file:
         # iterating over prompts, saving them to a file
@@ -36,7 +36,7 @@ if __name__ == '__main__':
                         
                     for prof in professions:        
                         res = func.generator(
-                            inputs = f'This {race} {gen} {prof} is',
+                            inputs = f'This {race} {gen} {prof} is very',
                             tokeniser = tokeniser,
                             model = model,
                             length = max_len, 

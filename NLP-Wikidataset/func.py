@@ -146,7 +146,7 @@ def generator(inputs, tokeniser, model, length = 50,  pad_size = 264, pad_value 
     # selecting the ones with the highest probs
     for _ in range(length):
         
-        with tf.device('GPU:1'):
+        with tf.device('GPU:0'):
             # padding
             x, _ = tf_text.pad_model_inputs(tf.ragged.constant([out]), pad_size, pad_value)
             
@@ -163,21 +163,21 @@ def generator(inputs, tokeniser, model, length = 50,  pad_size = 264, pad_value 
         
 
         
-        # keep it from looping 3 words over and over again    
-        for idx in range(search_depth):
-            #                                          if the best fit wold be <UNK>, ignore it
-            if new_tokens[idx] not in out[:-search_depth] and new_tokens[idx] != 1:
-                out.append(new_tokens[idx].numpy())
-                break
-            
-            # no fitting token was found:
-            if idx == search_depth - 1:
-                print(f'Found no token that\'s in the specified search depth of {search_depth}.\nResuming with nex best guess...')
-                # check if this is now an <UNK> token
-                if new_tokens[idx+1] != 1:
-                    out.append(new_tokens[idx+1].numpy())
-                else:
-                    out.append(new_tokens[idx+2].numpy())
+            # keep it from looping 3 words over and over again    
+            for idx in range(search_depth):
+                #                                          if the best fit wold be <UNK>, ignore it
+                if new_tokens[idx] not in out[:-search_depth] and new_tokens[idx] != 1:
+                    out.append(new_tokens[idx].numpy())
+                    break
+                
+                # no fitting token was found:
+                if idx == search_depth - 1:
+                    print(f'Found no token that\'s in the specified search depth of {search_depth}.\nResuming with nex best guess...')
+                    # check if this is now an <UNK> token
+                    if new_tokens[idx+1] != 1:
+                        out.append(new_tokens[idx+1].numpy())
+                    else:
+                        out.append(new_tokens[idx+2].numpy())
  
     vocab = np.asarray(tokeniser.layer.get_vocabulary())
     text = " ".join(vocab[np.asarray(out)])
