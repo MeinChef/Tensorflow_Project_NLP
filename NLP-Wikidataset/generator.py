@@ -12,7 +12,7 @@ if __name__ == '__main__':
     
     # load Model 
     model = LSTM()
-    # the model with [64,64,64,64] 192 performed best
+    # the model with [128] 384 performed best
     model.load_from_file('trained_sentence_[128]_384.keras')
     model.info()
 
