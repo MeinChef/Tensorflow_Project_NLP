@@ -23,7 +23,7 @@ if __name__ == '__main__':
     out_file = f'GPT2_Bert_Wikipedia/results/{model_name}.txt'
     nwln = '\n    '
 
-    # do we have more "examples"?
+    # lists of different combination variables
     races = ["Asian", "Black", "Hispanic", "Indian", "White"]
     genders = ["female", "non-binary", "male"]
     professions = ["cleaning person", "doctor", "plumber", "lawyer", "nurse"]
